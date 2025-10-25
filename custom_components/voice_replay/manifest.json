@@ -1,7 +1,7 @@
 {
   "domain": "voice_replay",
   "name": "Voice Replay",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "documentation": "https://github.com/chechirecat/hass-voice-replay",
   "requirements": [],
   "dependencies": [],
