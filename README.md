@@ -1,38 +1,57 @@
-# hass-voice-replay
+# Voice Replay Home Assistant Integration
 
-Voice Replay - Home Assistant custom integration skeleton.
+[![GitHub Release](https://img.shields.io/github/release/chechirecat/hass-voice-replay.svg?style=flat-square)](https://github.com/chechirecat/hass-voice-replay/releases)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://hacs.xyz/docs/faq/custom_repositories)
 
-Installation:
-1. Copy the custom_components/voice_replay folder into your Home Assistant config directory.
-2. Restart Home Assistant.
-3. Call the service voice_replay.replay with optional url or media_content.
+[![License](https://img.shields.io/github/license/chechirecat/hass-voice-replay.svg?style=flat-square)](LICENSE)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/chechirecat/hass-voice-replay.svg?style=flat-square)](https://github.com/chechirecat/hass-voice-replay/commits/main)
 
-Repository adapted to the hass-integration-template structure with CI and tests.
+A small Home Assistant custom integration to replay the captured voice clips on a media player.
 
-Repository contents:
+## Installation
 
-- custom_components/voice_replay/manifest.json
-- custom_components/voice_replay/__init__.py
-- custom_components/voice_replay/README.md
+### HACS (recommended)
 
-Quick install (manual):
-
-1. Create a GitHub repository named `hass-voice-replay` (or create a directory locally).
-1. In your Home Assistant configuration directory, place the `custom_components/voice_replay` folder (with files) under `/config/custom_components/`.
+1. Make sure you have HACS installed: https://hacs.xyz
+1. Add this repository as a custom repository to HACS:
+   [![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chechirecat&repository=hass-voice-replay&category=integration)
+1. Install the integration via HACS.
 1. Restart Home Assistant.
-1. Use the service `voice_replay.request_recording`:
+1. Set up the integration using the UI:  
+   [![Add Integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=voice_replay)
 
-Example:
+### Manual (local Home Assistant)
 
-```yaml
-service: voice_replay.request_recording
-data:
-  device_id: my_android_phone
-  entity_id: media_player.living_room_sonos
-  message: "Tap to record a quick message for the living room speaker"
+1. Copy the folder custom_components/voice_replay into your Home Assistant config directory:
+   <config_dir>/custom_components/voice_replay
+1. Restart Home Assistant.
+1. Add the integration: Settings → Devices & Services → Add Integration → "Voice Replay".
+
+## Usage
+
+- During setup you can provide a UI URL (default suggested). The integration exposes a redirect endpoint:
+  /api/voice_replay/ui — opens the configured UI URL.
+- Service: voice_replay.replay
+  - Example service call data:
+    {"url": "https://example.com/test.mp3"}
+  - The integration stores the last service payload at hass.data["voice_replay"]["voice_replay_data"]["last_replay"] for debugging.
+
+If you want a sidebar entry, add this to your configuration.yaml (panel_iframe) pointing to the local redirect endpoint:
+
+```
+panel_iframe:
+  voice_replay:
+    title: Voice Replay
+    icon: mdi:microphone
+    url: "http://<home_assistant_host>:8123/api/voice_replay/ui"
 ```
 
-Sidebar / UI
-- The integration registers a "Voice Replay" entry in the Home Assistant sidebar.
-- The panel opens the integration UI by redirecting to the URL stored in hass.data[voice_replay]["ui_url"].
-- By default this is set to: https://example.com/voice-replay-ui — update that value in code or extend the integration to allow configuration.
+## Contributing
+
+Contributions are welcome. Please open issues or PRs on GitHub and follow standard contribution workflows. See CONTRIBUTING.md if present.
+
+## Links
+
+- Template used: hass-integration-template — https://github.com/siku2/hass-integration-template  
+- Home Assistant developer docs: https://developers.home-assistant.io/docs/creating_integration_file_structure
+- HACS docs: https://hacs.xyz
