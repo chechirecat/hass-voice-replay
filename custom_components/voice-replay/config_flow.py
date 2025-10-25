@@ -1,7 +1,8 @@
 """Config flow for Voice Replay."""
+from __future__ import annotations
+
 import voluptuous as vol
 from .const import DOMAIN, CONF_UI_URL, DEFAULT_UI_URL
-from __future__ import annotations
 from homeassistant import config_entries
 
 class VoiceReplayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):

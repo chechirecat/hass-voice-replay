@@ -1,6 +1,7 @@
 """Simple UI view for Voice Replay that redirects to the configured UI URL."""
-from .const import DOMAIN
 from __future__ import annotations
+
+from .const import DOMAIN
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant

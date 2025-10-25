@@ -1,7 +1,8 @@
 """Voice Replay integration - entry points (thin)."""
+from __future__ import annotations
+
 import logging
 from .const import DOMAIN, DATA_KEY, CONF_UI_URL, DEFAULT_UI_URL
-from __future__ import annotations
 from typing import TYPE_CHECKING
 
 _LOGGER = logging.getLogger(__name__)
