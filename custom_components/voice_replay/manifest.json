@@ -2,8 +2,10 @@
   "domain": "voice_replay",
   "name": "Voice Replay",
   "version": "1.0.0",
-  "documentation": "https://example.org/voice_replay",
+  "documentation": "https://github.com/chechirecat/hass-voice-replay",
   "requirements": [],
   "dependencies": [],
-  "codeowners": ["@chechirecat"]
+  "codeowners": ["@chechirecat"],
+  "config_flow": false,
+  "iot_class": "local_push"
 }

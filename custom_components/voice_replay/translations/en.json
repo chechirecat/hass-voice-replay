@@ -1,0 +1,8 @@
+{
+  "services": {
+    "replay": {
+      "name": "Replay",
+      "description": "Replay a previously captured voice clip or play provided audio data."
+    }
+  }
+}

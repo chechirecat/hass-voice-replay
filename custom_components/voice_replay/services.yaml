@@ -1,0 +1,13 @@
+replay:
+  name: Replay
+  description: "Replay a previously captured voice clip or play provided audio data."
+  fields:
+    url:
+      description: "URL of audio to play (optional)."
+      example: "http://example.com/audio.mp3"
+    media_content:
+      description: "Base64-encoded media content (optional)."
+      example: "base64encodedstring"
+    entity_id:
+      description: "Optional target entity id to play on."
+      example: "media_player.living_room"

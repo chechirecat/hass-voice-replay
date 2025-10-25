@@ -1,48 +1,48 @@
-"""Voice Replay custom integration for Home Assistant.
-
-- Registers service voice_replay.request_recording
-- Exposes HTTP endpoints:
-  GET  /api/voice_replay/record?token=...
-  POST /api/voice_replay/upload?token=...
-"""
-
+"""Voice Replay integration - minimal skeleton."""
 from __future__ import annotations
 
-import os
-import random
-import string
-import time
-import uuid
-import subprocess
-from typing import Dict
+import logging
+from typing import Any
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.const import ATTR_ENTITY_ID, STATE_PLAYING
-from homeassistant.helpers import event as hass_event
-from homeassistant.helpers.network import get_url
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.helpers.typing import HomeAssistantType
-from homeassistant.util import slugify
+from homeassistant.config_entries import ConfigEntry
 
-DOMAIN = "voice_replay"
-TOKEN_TTL_SECONDS = 300  # tokens valid 5 minutes by default
-WWW_SUBPATH = "voice_replay"  # saved files will be under /www/voice_replay/
+from .const import DOMAIN, SERVICE_REPLAY, DATA_KEY
 
-# Storage keys on hass.data
-DATA_TOKENS = "voice_replay_tokens"
-DATA_PENDING = "voice_replay_pending"  # for pending resume info
+_LOGGER = logging.getLogger(__name__)
 
 
-def _gen_token(length: int = 32) -> str:
-    return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-
-
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up the integration from YAML (not used)."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][DATA_TOKENS] = {}
-    hass.data[DOMAIN][DATA_PENDING] = {}
+    return True
 
-    hass.http.register_view(RecordPageView(hass))
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up the integration from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN].setdefault(DATA_KEY, {})
+
+    async def handle_replay(call: ServiceCall) -> None:
+        """Handle the replay service call."""
+        # Minimal stub: store last call data for tests or other components.
+        payload: dict[str, Any] = {
+            "url": call.data.get("url"),
+            "media_content": call.data.get("media_content"),
+            "entity_id": call.data.get("entity_id"),
+        }
+        hass.data[DOMAIN][DATA_KEY]["last_replay"] = payload
+        _LOGGER.info("voice_replay.replay called: %s", payload)
+
+    hass.services.async_register(DOMAIN, SERVICE_REPLAY, handle_replay)
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    hass.services.async_remove(DOMAIN, SERVICE_REPLAY)
+    return True
     hass.http.register_view(UploadView(hass))
 
     async def handle_request_recording(call: ServiceCall):
