@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import voluptuous as vol
-from .const import DOMAIN, CONF_UI_URL, DEFAULT_UI_URL
 from homeassistant import config_entries
+
+from .const import CONF_UI_URL, DEFAULT_UI_URL, DOMAIN
+
 
 class VoiceReplayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Voice Replay."""

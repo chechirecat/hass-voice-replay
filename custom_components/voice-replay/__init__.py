@@ -2,16 +2,10 @@
 from __future__ import annotations
 
 import logging
-from .const import DOMAIN, DATA_KEY, CONF_UI_URL, DEFAULT_UI_URL
-from typing import TYPE_CHECKING
+
+from .const import CONF_UI_URL, DATA_KEY, DEFAULT_UI_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    # Type-only imports to avoid runtime dependency on Home Assistant during tests
-    from homeassistant.config_entries import ConfigEntry
-    from homeassistant.core import HomeAssistant
-
 
 async def async_setup(hass, config: dict) -> bool:
     """Set up the integration from YAML (or on startup)."""
