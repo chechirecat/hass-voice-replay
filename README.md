@@ -31,3 +31,8 @@ data:
   entity_id: media_player.living_room_sonos
   message: "Tap to record a quick message for the living room speaker"
 ```
+
+Sidebar / UI
+- The integration registers a "Voice Replay" entry in the Home Assistant sidebar.
+- The panel opens the integration UI by redirecting to the URL stored in hass.data[voice_replay]["ui_url"].
+- By default this is set to: https://example.com/voice-replay-ui — update that value in code or extend the integration to allow configuration.
