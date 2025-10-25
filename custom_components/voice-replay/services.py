@@ -1,4 +1,4 @@
-"""Service registration for voice_replay."""
+"""Service registration for voice-replay."""
 from __future__ import annotations
 
 import logging
@@ -26,6 +26,6 @@ def register_services(hass: HomeAssistant) -> None:
 		hass.data.setdefault(DOMAIN, {})
 		hass.data[DOMAIN].setdefault(DATA_KEY, {})
 		hass.data[DOMAIN][DATA_KEY]["last_replay"] = payload
-		_LOGGER.info("voice_replay.replay called: %s", payload)
+		_LOGGER.info("voice-replay.replay called: %s", payload)
 
 	hass.services.async_register(DOMAIN, SERVICE_REPLAY, handle_replay)

@@ -1,0 +1,8 @@
+{
+    "name": "Voice Replay",
+    "filename": "voice-replay.zip",
+    "hide_default_branch": true,
+    "homeassistant": "2025.10.4",
+    "render_readme": true,
+    "zip_release": true
+}

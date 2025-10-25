@@ -1,0 +1,24 @@
+{
+    "domain": "voice-replay",
+    "name": "Voice Replay",
+    "after_dependencies": [],
+    "bluetooth": [],
+    "codeowners": [
+        "@chechirecat"
+    ],
+    "config_flow": true,
+    "dependencies": [],
+    "dhcp": [],
+    "documentation": "https://github.com/chechirecat/hass-voice-replay",
+    "homekit": {},
+    "integration_type": "device",
+    "iot_class": "local_polling",
+    "issue_tracker": "https://github.com/chechire/hass-voice-replay/issues",
+    "loggers": [],
+    "mqtt": [],
+    "requirements": [],
+    "ssdp": [],
+    "usb": [],
+    "version": "0.1.0",
+    "zeroconf": []
+}

@@ -1,4 +1,4 @@
-from custom_components.voice_replay import const
+from custom_components.voice-replay import const
 
 def test_domain():
-    assert const.DOMAIN == "voice_replay"
+    assert const.DOMAIN == "voice-replay"
