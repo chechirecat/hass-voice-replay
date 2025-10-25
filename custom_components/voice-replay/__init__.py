@@ -1,4 +1,5 @@
 """Voice Replay integration - entry points (thin)."""
+
 from __future__ import annotations
 
 import logging
@@ -6,6 +7,7 @@ import logging
 from .const import CONF_UI_URL, DATA_KEY, DEFAULT_UI_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup(hass, config: dict) -> bool:
     """Set up the integration from YAML (or on startup)."""

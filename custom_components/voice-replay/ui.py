@@ -1,4 +1,5 @@
 """Simple UI view for Voice Replay that redirects to the configured UI URL."""
+
 from __future__ import annotations
 
 from aiohttp import web
