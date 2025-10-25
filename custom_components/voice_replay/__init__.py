@@ -15,6 +15,10 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the integration from YAML (not used)."""
     hass.data.setdefault(DOMAIN, {})
+
+    # Register service for YAML installs (available immediately after restart).
+    _register_replay_service(hass)
+
     return True
 
 
@@ -22,6 +26,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the integration from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN].setdefault(DATA_KEY, {})
+
+    # Ensure service is registered (no double registration).
+    _register_replay_service(hass)
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    # Remove service (safe even if registered during YAML setup).
+    hass.services.async_remove(DOMAIN, SERVICE_REPLAY)
+    return True
+
+
+# New helper placed at bottom of file to avoid code duplication.
+def _register_replay_service(hass: HomeAssistant) -> None:
+    """Register the replay service if not already registered."""
+    if hass.services.has_service(DOMAIN, SERVICE_REPLAY):
+        return
 
     async def handle_replay(call: ServiceCall) -> None:
         """Handle the replay service call."""
@@ -31,35 +54,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "media_content": call.data.get("media_content"),
             "entity_id": call.data.get("entity_id"),
         }
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN].setdefault(DATA_KEY, {})
         hass.data[DOMAIN][DATA_KEY]["last_replay"] = payload
         _LOGGER.info("voice_replay.replay called: %s", payload)
 
     hass.services.async_register(DOMAIN, SERVICE_REPLAY, handle_replay)
-
-    return True
-
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    hass.services.async_remove(DOMAIN, SERVICE_REPLAY)
-    return True
-    hass.http.register_view(UploadView(hass))
-
-    async def handle_request_recording(call: ServiceCall):
-        """
-        Service: voice_replay.request_recording
-        Required data:
-          - device_id: string (mobile app device name suffix used for notify: mobile_app_<device_id>)
-        Optional:
-          - entity_id: media_player entity id to play to (if not provided, user can pick on upload page)
-          - message: custom message for notification
-          - ttl: seconds the token remains valid
-        """
-        device_id = call.data.get("device_id")
-        if not device_id:
-            hass.logger.error("request_recording missing device_id")
-            return
-
         entity_id = call.data.get("entity_id")
         message = call.data.get("message", "Tap to record and send audio")
         ttl = int(call.data.get("ttl", TOKEN_TTL_SECONDS))
