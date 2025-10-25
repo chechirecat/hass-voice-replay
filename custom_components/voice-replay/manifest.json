@@ -7,7 +7,7 @@
         "@chechirecat"
     ],
     "config_flow": true,
-    "dependencies": [],
+    "dependencies": ["http"],
     "dhcp": [],
     "documentation": "https://github.com/chechirecat/hass-voice-replay",
     "homekit": {},
