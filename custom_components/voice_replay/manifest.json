@@ -1,0 +1,9 @@
+{
+  "domain": "voice_replay",
+  "name": "Voice Replay",
+  "version": "1.0.0",
+  "documentation": "https://example.org/voice_replay",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@chechirecat"]
+}
