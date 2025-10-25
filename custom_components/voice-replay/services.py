@@ -1,12 +1,9 @@
 """Service registration for voice-replay."""
-from __future__ import annotations
-
 import logging
-from typing import Any
-
-from homeassistant.core import HomeAssistant, ServiceCall
-
 from .const import DOMAIN, SERVICE_REPLAY, DATA_KEY
+from __future__ import annotations
+from homeassistant.core import HomeAssistant, ServiceCall
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 

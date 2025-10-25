@@ -1,12 +1,9 @@
 """Simple UI view for Voice Replay that redirects to the configured UI URL."""
+from .const import DOMAIN
 from __future__ import annotations
-
 from aiohttp import web
-
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
-
-from .const import DOMAIN
 
 VIEW_URL = f"/api/{DOMAIN}/ui"
 VIEW_NAME = f"api:{DOMAIN}:ui"
