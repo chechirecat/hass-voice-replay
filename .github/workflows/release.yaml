@@ -101,10 +101,10 @@ jobs:
         shell: "bash"
         run: |
           # Update version
-          yq -i -o json '.version="${{ needs.prepare.outputs.version }}"' '${{ needs.prepare.outputs.component_dir }}/manifest.json'
+          yq -i -o json '.version="${{ steps.info.outputs.version }}"' ${{ steps.info.outputs.component_dir }}/manifest.json'
           # Archive
-          cd '${{ needs.prepare.outputs.component_dir }}'
-          zip '${{ needs.prepare.outputs.hacs_filename }}' -r ./
+          cd '${{ steps.info.outputs.component_dir }}'
+          zip '${{ steps.info.outputs.hacs_filename }}' -r ./
 
       - name: "Upload Release Asset"
         id: upload-asset
@@ -113,8 +113,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-draft-release.outputs.upload_url }}
-          asset_name: ${{ needs.prepare.outputs.hacs_filename }}
-          asset_path: ${{ needs.prepare.outputs.hacs_filename }}
+          asset_name: ${{ steps.info.outputs.hacs_filename }}
+          asset_path: ${{ steps.info.outputs.hacs_filename }}
           asset_content_type: application/zip
 
   release:
