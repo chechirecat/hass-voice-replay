@@ -10,21 +10,38 @@ on:
     tags:
       - 'v*'
 
-permissions: {}
+permissions:
+  contents: write
 
 jobs:
+  create-draft-release:
+    name: "Create Draft Release"
+    runs-on: "ubuntu-latest"
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v5"
+
+      - name: "Create Draft Release"
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          body: ${{ steps.git-cliff.outputs.content }}
+          tag_name: ${{ steps.info.outputs.tag_name }}
+          target_commitish: '${{ github.sha }}'
+
   prepare:
-    name: Prepare release
+    needs: create-draft-release
+    name: Prepare Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     outputs:
       domain: ${{ steps.info.outputs.domain }}
       component_dir: ${{ steps.info.outputs.component_dir }}
       hacs_filename: ${{ steps.info.outputs.hacs_filename }}
       version: ${{ steps.info.outputs.version }}
-      tag_name: ${{ steps.info.outputs.tag_name }}
-      release_body: ${{ steps.git-cliff.outputs.content }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -80,16 +97,6 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GIT_CLIFF_TAG: ${{ steps.info.outputs.tag_name }}
 
-  release:
-    needs: prepare
-    name: "Release"
-    runs-on: "ubuntu-latest"
-    permissions:
-      contents: write
-    steps:
-      - name: "Checkout the repository"
-        uses: "actions/checkout@v5"
-
       - name: "Build the integration"
         shell: "bash"
         run: |
@@ -99,10 +106,30 @@ jobs:
           cd '${{ needs.prepare.outputs.component_dir }}'
           zip '${{ needs.prepare.outputs.hacs_filename }}' -r ./
 
-      - name: "Create release"
-        uses: softprops/action-gh-release@v2
+      - name: "Upload Release Asset"
+        id: upload-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          body: '${{ needs.prepare.outputs.release_body }}'
-          tag_name: '${{ needs.prepare.outputs.tag_name }}'
-          target_commitish: '${{ github.sha }}'
-          files: ${{ needs.prepare.outputs.component_dir }}/${{ needs.prepare.outputs.hacs_filename }}
+          upload_url: ${{ needs.create-draft-release.outputs.upload_url }}
+          asset_name: ${{ needs.prepare.outputs.hacs_filename }}
+          asset_path: ${{ needs.prepare.outputs.hacs_filename }}
+          asset_content_type: application/zip
+
+  release:
+    needs: prepare
+    name: "Publish Release"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Publish Draft Release"
+        id: publish-release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: '${{ needs.create-draft-release.outputs.release_id }}',
+              draft: false,
+            })
