@@ -1,8 +1,8 @@
 [project]
 name = "voice-replay"
-version = "0.0.0"
-dependencies = ["colorlog", "homeassistant==2025.4.4"]
-requires-python = ">=3.13"
+version = "0.1.0"
+dependencies = ["colorlog", "homeassistant==2025.10.4"]
+requires-python = ">=3.12"
 
 [build-system]
 requires = ["uv_build>=0.7.3,<0.10.0"]
