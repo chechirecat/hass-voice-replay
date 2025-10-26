@@ -101,7 +101,7 @@ jobs:
         shell: "bash"
         run: |
           # Update version
-          yq -i -o json '.version="${{ steps.info.outputs.version }}"' ${{ steps.info.outputs.component_dir }}/manifest.json'
+          yq -i -o json '.version="${{ steps.info.outputs.version }}"' '${{ steps.info.outputs.component_dir }}/manifest.json'
           # Archive
           cd '${{ steps.info.outputs.component_dir }}'
           zip '${{ steps.info.outputs.hacs_filename }}' -r ./
