@@ -18,22 +18,17 @@ jobs:
     name: "Create Draft Release"
     runs-on: "ubuntu-latest"
     outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
+      release_id: ${{ steps.create-release.outputs.id }}
     steps:
-      - name: "Checkout the repository"
-        uses: "actions/checkout@v5"
-
       - name: "Create Draft Release"
+        id: create-release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           prerelease: true
-          body: ${{ steps.git-cliff.outputs.content }}
-          tag_name: ${{ steps.info.outputs.tag_name }}
-          target_commitish: '${{ github.sha }}'
 
-  prepare:
+  prepare-release:
     needs: create-draft-release
     name: Prepare Release
     runs-on: ubuntu-latest
@@ -112,13 +107,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.create-draft-release.outputs.upload_url }}
+          upload_url: ${{ steps.create-draft-release.outputs.upload_url }}
           asset_name: ${{ steps.info.outputs.hacs_filename }}
           asset_path: ${{ steps.info.outputs.hacs_filename }}
           asset_content_type: application/zip
 
   release:
-    needs: prepare
+    needs: prepare-release
     name: "Publish Release"
     runs-on: "ubuntu-latest"
     steps:
