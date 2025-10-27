@@ -15,8 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 # API endpoints
 PANEL_URL = f"/api/{DOMAIN}/panel"
 PANEL_NAME = f"api:{DOMAIN}:panel"
-PANEL_JS_URL = f"/api/{DOMAIN}/voice-replay-card.js"
-PANEL_JS_NAME = f"api:{DOMAIN}:voice_replay_card_js"
 UPLOAD_URL = f"/api/{DOMAIN}/upload"
 UPLOAD_NAME = f"api:{DOMAIN}:upload"
 MEDIA_PLAYERS_URL = f"/api/{DOMAIN}/media_players"
@@ -693,60 +691,12 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
             return web.json_response({"available": False, "error": str(e)})
 
 
-class VoiceReplayPanelJSView(HomeAssistantView):
-    """Serve the Voice Replay Card JavaScript file."""
-
-    url = PANEL_JS_URL
-    name = PANEL_JS_NAME
-    requires_auth = False  # Static JS file doesn't need auth
-
-    async def get(self, request: web.Request) -> web.Response:
-        """Serve the Voice Replay Card JavaScript file."""
-        import os
-        from concurrent.futures import ThreadPoolExecutor
-
-        # Get the voice-replay-card.js file from the same directory
-        current_dir = os.path.dirname(__file__)
-        js_file_path = os.path.join(current_dir, "voice-replay-card.js")
-
-        try:
-            # Use executor to avoid blocking the event loop
-            loop = request.app.loop if hasattr(request.app, "loop") else None
-            executor = ThreadPoolExecutor(max_workers=1)
-
-            def read_file():
-                with open(js_file_path, encoding="utf-8") as f:
-                    return f.read()
-
-            if loop:
-                js_content = await loop.run_in_executor(executor, read_file)
-            else:
-                js_content = read_file()
-
-            return web.Response(
-                text=js_content,
-                content_type="application/javascript",
-                headers={
-                    "Cache-Control": "no-cache"
-                }  # Disable caching for development
-            )
-        except FileNotFoundError:
-            return web.Response(
-                status=404, text="Voice Replay Card JavaScript not found"
-            )
-        except Exception as e:
-            _LOGGER.error("Error serving voice-replay-card.js: %s", e)
-            return web.Response(status=500, text="Error loading card")
-
-
 def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:
     """Register the native UI views."""
     hass.http.register_view(VoiceReplayPanelView())
-    hass.http.register_view(VoiceReplayPanelJSView())
     hass.http.register_view(VoiceReplayUploadView(hass))
     hass.http.register_view(VoiceReplayMediaPlayersView(hass))
     hass.http.register_view(VoiceReplayMediaView(hass))
     hass.http.register_view(VoiceReplayTTSConfigView(hass))
 
-    # Let HACS handle the frontend component - no manual copying needed
-    _LOGGER.debug("UI views registered, HACS will handle frontend components")
+    _LOGGER.debug("UI views registered - frontend card will be separate repository")

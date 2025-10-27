@@ -1,4 +1,4 @@
-# Voice Replay - Home Assistant Integration & Card
+# Voice Replay - Home Assistant Integration
 
 [![GitHub Release](https://img.shields.io/github/release/chechirecat/hass-voice-replay.svg?style=flat-square)](https://github.com/chechirecat/hass-voice-replay/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://hacs.xyz/docs/faq/custom_repositories)
@@ -7,21 +7,27 @@
 
 🎤 Record voice messages and generate text-to-speech to play on your Home Assistant media players!
 
-## What's Included
+## What's This Repository
 
-This repository provides **two components**:
+This repository provides the **🔌 Voice Replay Integration** - the backend services for voice recording and TTS functionality.
 
-1. **🔌 Voice Replay Integration** - Backend services for recording and TTS
-2. **🎨 Voice Replay Card** - Beautiful Lovelace dashboard card
+**🎨 Looking for the Lovelace Card?** The frontend card is in a separate repository:
+👉 **[Voice Replay Card Repository](https://github.com/chechirecat/voice-replay-card)** 👈
 
 ## Features
 
-🎤 **Voice Recording** - Record audio directly from your browser  
-🗣️ **Text-to-Speech** - Generate speech using Home Assistant's TTS services  
-📱 **Mobile Optimized** - Touch-friendly interface with large buttons  
-🎨 **Theme Integration** - Automatically matches your Home Assistant theme  
+🎤 **Voice Recording API** - Record audio via browser and save to media players  
+🗣️ **Text-to-Speech API** - Generate speech using Home Assistant's TTS services  
 🏠 **Multi-Room Audio** - Play on any media player in your home  
-⚙️ **Configurable** - Customize appearance and default settings  
+⚙️ **RESTful API** - Easy integration with custom cards and automations  
+🔐 **Secure** - Built-in Home Assistant authentication
+
+## Complete Setup (Integration + Card)
+
+To get the full Voice Replay experience, you need both:
+
+1. **This Integration** (backend services)
+2. **[Voice Replay Card](https://github.com/chechirecat/voice-replay-card)** (frontend UI)  
 
 ## Installation
 
@@ -35,22 +41,23 @@ This repository provides **two components**:
 5. Set up the integration:  
    [![Add Integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=voice-replay)
 
-**✨ HACS automatically handles the frontend component - no manual steps needed!**
-
 ### Manual Installation
 
-#### Integration
 1. Copy `custom_components/voice-replay` to your Home Assistant config directory
 2. Restart Home Assistant
 3. Add the integration: Settings → Devices & Services → Add Integration → "Voice Replay"
 
-#### Card Resource (Manual Installation Only)
-For manual installations, you need to add the card resource:
-1. Copy `custom_components/voice-replay/voice-replay-card.js` to `<config>/www/voice-replay-card.js`
-2. Go to Settings → Dashboards → Resources
-3. Add resource:
-   - URL: `/local/voice-replay-card.js`
-   - Resource Type: JavaScript Module
+## Frontend Card
+
+**The Lovelace card is in a separate repository for easier management:**
+
+🎨 **[Install Voice Replay Card](https://github.com/chechirecat/voice-replay-card)**
+
+The card provides a beautiful touch-friendly interface for:
+- 🎤 Recording voice messages
+- 🗣️ Text-to-speech generation  
+- 📱 Mobile-optimized controls
+- 🎨 Theme integration
    - Go to Settings → Dashboards → Resources  
    - Click "Add Resource"
    - URL: `/local/voice-replay-card.js`
