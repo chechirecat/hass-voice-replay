@@ -144,7 +144,7 @@ jobs:
           files: ${{ needs.prepare.outputs.hacs_filename }}
 
   release:
-    needs: upload
+    needs: [create-draft-release, upload]
     name: "Publish Release"
     runs-on: "ubuntu-latest"
     steps:
