@@ -51,7 +51,7 @@ jobs:
           GIT_CLIFF_TAG: ${{ steps.info.outputs.tag_name }}
 
       - name: "Create Draft Release"
-        id: create-release # Added ID to step
+        id: create-release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
@@ -89,17 +89,20 @@ jobs:
               echo >&2 "No filename found in hacs.json. Please check your HACS configuration."
               exit 1
             fi
+
             echo "domain=${domain}"
             echo "component_dir=custom_components/${domain}"
             echo "hacs_filename=${hacs_filename}"
-          } | tee "$GITHUB_OUTPUT"
-          if [ -z '${{ inputs.version }}' ]; then
+
+            if [ -z '${{ inputs.version }}' ]; then
               echo >&2 "No version provided. Using the tag name as version."
               tag_name='${{ github.ref_name }}'
               echo "version=${tag_name#v}" # Remove 'v' prefix if present
             else
               echo "version=${{ inputs.version }}"
             fi
+
+          } | tee "$GITHUB_OUTPUT"
 
       - name: Sanity check
         shell: bash
