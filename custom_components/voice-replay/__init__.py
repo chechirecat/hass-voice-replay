@@ -39,7 +39,9 @@ async def async_setup_entry(hass, entry) -> bool:
     ui_mod.register_ui_view(hass)
 
     # HACS will handle frontend component registration automatically
-    _LOGGER.debug("Voice Replay set up with native UI - HACS handles frontend components")
+    _LOGGER.debug(
+        "Voice Replay set up with native UI - HACS handles frontend components"
+    )
     return True
 
 

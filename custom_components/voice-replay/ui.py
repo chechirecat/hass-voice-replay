@@ -496,13 +496,13 @@ class VoiceReplayUploadView(HomeAssistantView):
                     break
 
                 field_name = field.name
-                if field_name in ['audio']:
+                if field_name in ["audio"]:
                     fields[field_name] = await field.read()
                 else:
                     fields[field_name] = (await field.read()).decode()
 
-            entity_id = fields.get('entity_id')
-            request_type = fields.get('type', 'recording')
+            entity_id = fields.get("entity_id")
+            request_type = fields.get("type", "recording")
 
             if not entity_id:
                 return web.json_response({"error": "Missing entity_id"}, status=400)
@@ -510,11 +510,13 @@ class VoiceReplayUploadView(HomeAssistantView):
             import os
             import tempfile
 
-            if request_type == 'tts':
+            if request_type == "tts":
                 # Handle text-to-speech
-                text = fields.get('text')
+                text = fields.get("text")
                 if not text:
-                    return web.json_response({"error": "Missing text for TTS"}, status=400)
+                    return web.json_response(
+                        {"error": "Missing text for TTS"}, status=400
+                    )
 
                 # Use Home Assistant's TTS service
                 try:
@@ -529,20 +531,28 @@ class VoiceReplayUploadView(HomeAssistantView):
                         blocking=True,
                     )
 
-                    return web.json_response({"status": "success", "message": "Playing TTS audio"})
+                    return web.json_response(
+                        {"status": "success", "message": "Playing TTS audio"}
+                    )
 
                 except Exception as tts_error:
                     _LOGGER.error("TTS service error: %s", tts_error)
-                    return web.json_response({"error": f"TTS service failed: {str(tts_error)}"}, status=500)
+                    return web.json_response(
+                        {"error": f"TTS service failed: {str(tts_error)}"}, status=500
+                    )
 
             else:
                 # Handle audio recording
-                audio_data = fields.get('audio')
+                audio_data = fields.get("audio")
                 if not audio_data:
-                    return web.json_response({"error": "Missing audio data"}, status=400)
+                    return web.json_response(
+                        {"error": "Missing audio data"}, status=400
+                    )
 
                 # Save audio temporarily and create a media URL
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".webm"
+                ) as tmp_file:
                     tmp_file.write(audio_data)
                     temp_path = tmp_file.name
 
@@ -565,7 +575,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                     blocking=True,
                 )
 
-                return web.json_response({"status": "success", "message": "Playing audio"})
+                return web.json_response(
+                    {"status": "success", "message": "Playing audio"}
+                )
 
         except Exception as e:
             _LOGGER.error("Error handling upload request: %s", e)
@@ -661,17 +673,21 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
                 # Get available TTS engines
                 tts_domain = self.hass.data.get("tts", {})
                 if tts_domain:
-                    for service_name in self.hass.services.async_services().get("tts", {}):
+                    for service_name in self.hass.services.async_services().get(
+                        "tts", {}
+                    ):
                         tts_services.append(service_name)
                 else:
                     # Fallback - assume basic TTS is available
                     tts_services.append("speak")
 
-            return web.json_response({
-                "available": len(tts_services) > 0,
-                "services": tts_services,
-                "default_service": "speak" if tts_services else None
-            })
+            return web.json_response(
+                {
+                    "available": len(tts_services) > 0,
+                    "services": tts_services,
+                    "default_service": "speak" if tts_services else None
+                }
+            )
         except Exception as e:
             _LOGGER.error("Error getting TTS config: %s", e)
             return web.json_response({"available": False, "error": str(e)})
@@ -695,7 +711,7 @@ class VoiceReplayPanelJSView(HomeAssistantView):
 
         try:
             # Use executor to avoid blocking the event loop
-            loop = request.app.loop if hasattr(request.app, 'loop') else None
+            loop = request.app.loop if hasattr(request.app, "loop") else None
             executor = ThreadPoolExecutor(max_workers=1)
 
             def read_file():
@@ -710,10 +726,14 @@ class VoiceReplayPanelJSView(HomeAssistantView):
             return web.Response(
                 text=js_content,
                 content_type="application/javascript",
-                headers={"Cache-Control": "no-cache"}  # Disable caching for development
+                headers={
+                    "Cache-Control": "no-cache"
+                }  # Disable caching for development
             )
         except FileNotFoundError:
-            return web.Response(status=404, text="Voice Replay Card JavaScript not found")
+            return web.Response(
+                status=404, text="Voice Replay Card JavaScript not found"
+            )
         except Exception as e:
             _LOGGER.error("Error serving voice-replay-card.js: %s", e)
             return web.Response(status=500, text="Error loading card")
