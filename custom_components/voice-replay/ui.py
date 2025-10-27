@@ -367,7 +367,7 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
                     {
                         "entity_id": entity_id,
                         "name": state.attributes.get("friendly_name", entity_id),
-                        "state": state.state
+                        "state": state.state,
                     }
                 )
 
@@ -387,7 +387,7 @@ class VoiceReplayMediaView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         """Serve audio file."""
-        filename = request.match_info.get('filename')
+        filename = request.match_info.get("filename")
         if not filename:
             return web.Response(status=404)
 
@@ -408,7 +408,7 @@ class VoiceReplayMediaView(HomeAssistantView):
             return web.Response(
                 body=content,
                 content_type="audio/webm",
-                headers={"Content-Disposition": f'inline; filename="{filename}"'}
+                headers={"Content-Disposition": f'inline; filename="{filename}"'},
             )
         except Exception as e:
             _LOGGER.error("Error serving media file %s: %s", filename, e)
