@@ -29,7 +29,6 @@ async def async_setup_entry(hass, entry) -> bool:
     hass.data[DOMAIN].setdefault(DATA_KEY, {})
 
     # Lazy imports that require Home Assistant runtime
-    from . import panel as panel_mod
     from . import services as services_mod
     from . import ui as ui_mod
 
@@ -38,9 +37,6 @@ async def async_setup_entry(hass, entry) -> bool:
 
     # Register the native UI views (no external URL needed)
     ui_mod.register_ui_view(hass)
-
-    # Register the sidebar panel
-    panel_mod.register_panel(hass)
 
     _LOGGER.debug("Voice Replay set up with native UI")
     return True

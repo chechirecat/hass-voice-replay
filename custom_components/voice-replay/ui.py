@@ -15,6 +15,8 @@ _LOGGER = logging.getLogger(__name__)
 # API endpoints
 PANEL_URL = f"/api/{DOMAIN}/panel"
 PANEL_NAME = f"api:{DOMAIN}:panel"
+PANEL_JS_URL = f"/api/{DOMAIN}/voice-replay-card.js"
+PANEL_JS_NAME = f"api:{DOMAIN}:voice_replay_card_js"
 UPLOAD_URL = f"/api/{DOMAIN}/upload"
 UPLOAD_NAME = f"api:{DOMAIN}:upload"
 MEDIA_PLAYERS_URL = f"/api/{DOMAIN}/media_players"
@@ -34,6 +36,8 @@ class VoiceReplayPanelView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         """Serve the Voice Replay panel."""
+        _LOGGER.info("Voice Replay panel requested from %s", request.remote)
+
         html_content = """
 <!DOCTYPE html>
 <html>
@@ -41,19 +45,34 @@ class VoiceReplayPanelView(HomeAssistantView):
     <title>Voice Replay</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 20px;
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: var(--paper-font-body1_-_font-family), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--primary-background-color, #fafafa);
             color: var(--primary-text-color, #212121);
+            line-height: 1.5;
         }
-        .container { max-width: 600px; margin: 0 auto; }
+        body {
+            padding: 20px;
+            overflow: auto;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            height: 100%;
+        }
         .card {
             background: var(--card-background-color, white);
-            border-radius: 8px;
+            border-radius: var(--ha-card-border-radius, 8px);
             padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,0.1));
             margin-bottom: 20px;
+            border: var(--ha-card-border-width, 1px) solid var(--divider-color, #e0e0e0);
         }
         .mode-selector {
             display: flex;
@@ -111,10 +130,12 @@ class VoiceReplayPanelView(HomeAssistantView):
         select, button, input[type="text"], textarea {
             padding: 10px;
             margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid var(--divider-color, #ddd);
+            border-radius: var(--ha-card-border-radius, 4px);
             font-size: 16px;
             font-family: inherit;
+            background: var(--card-background-color, white);
+            color: var(--primary-text-color, #212121);
         }
         textarea {
             width: calc(100% - 22px);
@@ -122,20 +143,20 @@ class VoiceReplayPanelView(HomeAssistantView):
             resize: vertical;
         }
         button {
-            background: #2196f3;
-            color: white;
+            background: var(--primary-color, #2196f3);
+            color: var(--text-primary-color, white);
             cursor: pointer;
             transition: background-color 0.3s;
         }
         button:hover:not(:disabled) {
-            background: #1976d2;
+            background: var(--dark-primary-color, #1976d2);
         }
         button:disabled {
-            background: #ccc;
+            background: var(--disabled-text-color, #ccc);
             cursor: not-allowed;
         }
         .tts-button {
-            background: #4caf50;
+            background: var(--light-primary-color, #4caf50);
         }
         .tts-button:hover:not(:disabled) {
             background: #388e3c;
@@ -653,12 +674,44 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
             })
         except Exception as e:
             _LOGGER.error("Error getting TTS config: %s", e)
-            return web.json_response({"available": False, "services": [], "error": str(e)})
+            return web.json_response({"available": False, "error": str(e)})
+
+
+class VoiceReplayPanelJSView(HomeAssistantView):
+    """Serve the Voice Replay Card JavaScript file."""
+
+    url = PANEL_JS_URL
+    name = PANEL_JS_NAME
+    requires_auth = False  # Static JS file doesn't need auth
+
+    async def get(self, request: web.Request) -> web.Response:
+        """Serve the Voice Replay Card JavaScript file."""
+        import os
+
+        # Get the voice-replay-card.js file from the same directory
+        current_dir = os.path.dirname(__file__)
+        js_file_path = os.path.join(current_dir, "voice-replay-card.js")
+
+        try:
+            with open(js_file_path, encoding="utf-8") as f:
+                js_content = f.read()
+
+            return web.Response(
+                text=js_content,
+                content_type="application/javascript",
+                headers={"Cache-Control": "no-cache"}  # Disable caching for development
+            )
+        except FileNotFoundError:
+            return web.Response(status=404, text="Voice Replay Card JavaScript not found")
+        except Exception as e:
+            _LOGGER.error("Error serving voice-replay-card.js: %s", e)
+            return web.Response(status=500, text="Error loading card")
 
 
 def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:
     """Register the native UI views."""
     hass.http.register_view(VoiceReplayPanelView())
+    hass.http.register_view(VoiceReplayPanelJSView())
     hass.http.register_view(VoiceReplayUploadView(hass))
     hass.http.register_view(VoiceReplayMediaPlayersView(hass))
     hass.http.register_view(VoiceReplayMediaView(hass))
