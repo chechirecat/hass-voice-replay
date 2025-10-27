@@ -35,13 +35,10 @@ async def async_setup_entry(hass, entry) -> bool:
     # Ensure service registration
     services_mod.register_services(hass)
 
-    # Register the native UI views (no external URL needed)
+    # Register the API views for backend functionality
     ui_mod.register_ui_view(hass)
 
-    # HACS will handle frontend component registration automatically
-    _LOGGER.debug(
-        "Voice Replay set up with native UI - HACS handles frontend components"
-    )
+    _LOGGER.debug("Voice Replay integration set up successfully")
     return True
 
 

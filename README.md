@@ -58,26 +58,47 @@ The card provides a beautiful touch-friendly interface for:
 - 🗣️ Text-to-speech generation  
 - 📱 Mobile-optimized controls
 - 🎨 Theme integration
-   - Go to Settings → Dashboards → Resources  
-   - Click "Add Resource"
-   - URL: `/local/voice-replay-card.js`
-   - Resource Type: JavaScript Module
 
-## Using the Card
+## API Endpoints
 
-Add the card to your dashboard:
+This integration provides RESTful API endpoints that can be used by the frontend card or other automations:
+
+- **POST** `/api/voice-replay/upload` - Upload audio or TTS text for playback
+- **GET** `/api/voice-replay/media_players` - List available media players  
+- **GET** `/api/voice-replay/tts_config` - Check TTS configuration
+- **GET** `/api/voice-replay/media/{filename}` - Serve temporary audio files
+
+## Usage Examples
+
+### Using with Automations
+
+You can trigger voice playback from automations using the `voice_replay.replay` service:
 
 ```yaml
-type: custom:voice-replay-card
+service: voice_replay.replay
+data:
+  entity_id: media_player.living_room
+  message: "Hello from Home Assistant!"
+  type: tts
 ```
 
-### Card Configuration
+### Using the REST API
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `type` | string | **Required** | `custom:voice-replay-card` |
-| `entity` | string | Optional | Default media player entity ID |
-| `title` | string | "Voice Replay" | Card title |
+```bash
+# Upload a voice recording
+curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "audio=@recording.webm" \
+  -F "entity_id=media_player.living_room" \
+  -F "type=recording"
+
+# Generate TTS
+curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "text=Hello World" \
+  -F "entity_id=media_player.kitchen" \
+  -F "type=tts"
+```
 | `show_title` | boolean | true | Show/hide the card title |
 
 ### Example Configurations
@@ -110,12 +131,11 @@ entity: media_player.kitchen_speaker
 
 ## How It Works
 
-1. **Recording**: Uses your browser's microphone to record audio
-2. **Upload**: Sends audio to Home Assistant backend  
+1. **Recording**: Frontend card uses browser's microphone to record audio
+2. **Upload**: Audio is sent to Home Assistant backend via REST API  
 3. **Processing**: Integration creates a temporary URL for the audio
 4. **Playback**: Calls `media_player.play_media` service on selected device
 5. **TTS**: Uses Home Assistant's built-in TTS services directly
-6. **Card Serving**: The integration automatically serves the card JavaScript at `/api/voice-replay/voice-replay-card.js`
 
 ## Browser Requirements
 
@@ -125,17 +145,18 @@ entity: media_player.kitchen_speaker
 
 ## Troubleshooting
 
-### Card Issues
-- **Card not showing**: Verify the resource is properly added to Resources with URL `/api/voice-replay/voice-replay-card.js`
-- **"No media players found"**: Check that you have media_player entities in HA
-- **Recording fails**: Check HTTPS connection and browser permissions
-- **Resource not found**: Make sure the Voice Replay integration is installed and running
-
 ### Integration Issues
 
 - **Upload fails**: Check Home Assistant logs for detailed error messages
 - **Audio doesn't play**: Verify media player supports the audio format
 - **TTS not working**: Ensure TTS is configured in Home Assistant
+- **"No media players found"**: Check that you have media_player entities in HA
+
+### API Issues
+
+- **401 Unauthorized**: Ensure you're using a valid Home Assistant access token
+- **404 Not Found**: Verify the Voice Replay integration is installed and running
+- **500 Server Error**: Check Home Assistant logs for backend errors
 
 ### Getting Help
 
