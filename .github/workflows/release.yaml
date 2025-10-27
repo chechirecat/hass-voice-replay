@@ -139,14 +139,9 @@ jobs:
           name: ${{ needs.prepare.outputs.hacs_filename }}
       - name: "Upload Release Asset"
         id: upload-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ needs.create-draft-release.outputs.upload_url }}
-          asset_name: ${{ needs.prepare.outputs.hacs_filename }}
-          asset_path: ${{ needs.prepare.outputs.hacs_filename }}
-          asset_content_type: application/zip
+          files: ${{ needs.prepare.outputs.hacs_filename }}
 
   release:
     needs: upload
