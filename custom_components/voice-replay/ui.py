@@ -687,14 +687,25 @@ class VoiceReplayPanelJSView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Serve the Voice Replay Card JavaScript file."""
         import os
+        from concurrent.futures import ThreadPoolExecutor
 
         # Get the voice-replay-card.js file from the same directory
         current_dir = os.path.dirname(__file__)
         js_file_path = os.path.join(current_dir, "voice-replay-card.js")
 
         try:
-            with open(js_file_path, encoding="utf-8") as f:
-                js_content = f.read()
+            # Use executor to avoid blocking the event loop
+            loop = request.app.loop if hasattr(request.app, 'loop') else None
+            executor = ThreadPoolExecutor(max_workers=1)
+
+            def read_file():
+                with open(js_file_path, encoding="utf-8") as f:
+                    return f.read()
+
+            if loop:
+                js_content = await loop.run_in_executor(executor, read_file)
+            else:
+                js_content = read_file()
 
             return web.Response(
                 text=js_content,
@@ -716,3 +727,6 @@ def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:
     hass.http.register_view(VoiceReplayMediaPlayersView(hass))
     hass.http.register_view(VoiceReplayMediaView(hass))
     hass.http.register_view(VoiceReplayTTSConfigView(hass))
+
+    # Let HACS handle the frontend component - no manual copying needed
+    _LOGGER.debug("UI views registered, HACS will handle frontend components")

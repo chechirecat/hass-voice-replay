@@ -31,12 +31,11 @@ This repository provides **two components**:
 2. Add this repository as a custom repository to HACS:
    [![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chechirecat&repository=hass-voice-replay&category=integration)
 3. Install the integration via HACS
-4. **Add the card resource**: Go to Settings → Dashboards → Resources, add resource:
-   - URL: `/api/voice-replay/voice-replay-card.js`
-   - Resource Type: JavaScript Module
-5. Restart Home Assistant
-6. Set up the integration:  
+4. Restart Home Assistant
+5. Set up the integration:  
    [![Add Integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=voice-replay)
+
+**✨ HACS automatically handles the frontend component - no manual steps needed!**
 
 ### Manual Installation
 
@@ -45,9 +44,13 @@ This repository provides **two components**:
 2. Restart Home Assistant
 3. Add the integration: Settings → Devices & Services → Add Integration → "Voice Replay"
 
-#### Card
+#### Card Resource (Manual Installation Only)
+For manual installations, you need to add the card resource:
 1. Copy `custom_components/voice-replay/voice-replay-card.js` to `<config>/www/voice-replay-card.js`
-2. Add the resource in Home Assistant:
+2. Go to Settings → Dashboards → Resources
+3. Add resource:
+   - URL: `/local/voice-replay-card.js`
+   - Resource Type: JavaScript Module
    - Go to Settings → Dashboards → Resources  
    - Click "Add Resource"
    - URL: `/local/voice-replay-card.js`

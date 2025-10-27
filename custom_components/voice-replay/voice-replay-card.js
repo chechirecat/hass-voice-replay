@@ -43,7 +43,7 @@ class VoiceReplayCard extends LitElement {
         padding: 16px;
         --mdc-icon-size: 24px;
       }
-      
+
       .card-header {
         font-size: 16px;
         font-weight: 500;
@@ -52,23 +52,23 @@ class VoiceReplayCard extends LitElement {
         align-items: center;
         gap: 8px;
       }
-      
+
       .card-header ha-icon {
         --mdc-icon-size: 20px;
         color: var(--primary-color);
       }
-      
+
       .media-player-select {
         margin-bottom: 16px;
       }
-      
+
       .media-player-select label {
         display: block;
         margin-bottom: 4px;
         font-weight: 500;
         color: var(--primary-text-color);
       }
-      
+
       select {
         width: 100%;
         padding: 8px 12px;
@@ -78,14 +78,14 @@ class VoiceReplayCard extends LitElement {
         color: var(--primary-text-color);
         font-size: 14px;
       }
-      
+
       .mode-selector {
         display: flex;
         gap: 16px;
         margin-bottom: 20px;
         justify-content: center;
       }
-      
+
       .mode-option {
         display: flex;
         align-items: center;
@@ -96,33 +96,33 @@ class VoiceReplayCard extends LitElement {
         transition: background-color 0.2s;
         font-size: 14px;
       }
-      
+
       .mode-option:hover {
         background-color: var(--secondary-background-color);
       }
-      
+
       .mode-option input[type="radio"] {
         margin: 0;
       }
-      
+
       .section {
         margin: 16px 0;
         padding: 16px;
         border-radius: var(--ha-card-border-radius, 8px);
         background: var(--secondary-background-color);
       }
-      
+
       .section.hidden {
         display: none;
       }
-      
+
       .section h3 {
         margin: 0 0 12px 0;
         font-size: 14px;
         font-weight: 500;
         color: var(--primary-text-color);
       }
-      
+
       .record-button {
         background: var(--error-color, #ff5722);
         color: white;
@@ -137,23 +137,23 @@ class VoiceReplayCard extends LitElement {
         transition: all 0.2s ease;
         box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
       }
-      
+
       .record-button:hover {
         transform: scale(1.05);
         box-shadow: var(--ha-card-box-shadow, 0 4px 8px rgba(0,0,0,0.15));
       }
-      
+
       .record-button.recording {
         background: var(--error-color, #f44336);
         animation: pulse 1s infinite;
       }
-      
+
       @keyframes pulse {
         0% { transform: scale(1); }
         50% { transform: scale(1.1); }
         100% { transform: scale(1); }
       }
-      
+
       button {
         padding: 8px 16px;
         margin: 4px;
@@ -166,27 +166,27 @@ class VoiceReplayCard extends LitElement {
         background: var(--primary-color);
         color: var(--text-primary-color, white);
       }
-      
+
       button:hover:not(:disabled) {
         background: var(--dark-primary-color);
         transform: translateY(-1px);
       }
-      
+
       button:disabled {
         background: var(--disabled-color);
         color: var(--disabled-text-color);
         cursor: not-allowed;
         transform: none;
       }
-      
+
       .tts-button {
         background: var(--success-color, #4caf50);
       }
-      
+
       .tts-button:hover:not(:disabled) {
         background: #388e3c;
       }
-      
+
       textarea {
         width: 100%;
         min-height: 80px;
@@ -200,12 +200,12 @@ class VoiceReplayCard extends LitElement {
         resize: vertical;
         box-sizing: border-box;
       }
-      
+
       textarea:focus {
         outline: none;
         border-color: var(--primary-color);
       }
-      
+
       .status {
         padding: 8px 12px;
         margin: 12px 0;
@@ -214,22 +214,22 @@ class VoiceReplayCard extends LitElement {
         font-size: 14px;
         font-weight: 500;
       }
-      
+
       .status.success { 
         background: var(--success-color, #c8e6c9); 
         color: var(--success-text-color, #2e7d32); 
       }
-      
+
       .status.error { 
         background: var(--error-color, #ffcdd2); 
         color: var(--error-text-color, #c62828); 
       }
-      
+
       .status.info { 
         background: var(--info-color, #bbdefb); 
         color: var(--info-text-color, #1565c0); 
       }
-      
+
       .control-group {
         display: flex;
         gap: 8px;
@@ -262,7 +262,7 @@ class VoiceReplayCard extends LitElement {
   firstUpdated() {
     this._loadMediaPlayers();
     this._checkTTSAvailability();
-    
+
     // Set default player from config
     if (this.config.entity) {
       this._selectedPlayer = this.config.entity;
@@ -277,7 +277,7 @@ class VoiceReplayCard extends LitElement {
 
   async _loadMediaPlayers() {
     if (!this.hass) return;
-    
+
     try {
       // Get media players from Home Assistant states
       const mediaPlayers = [];
@@ -291,7 +291,7 @@ class VoiceReplayCard extends LitElement {
           });
         }
       });
-      
+
       this._mediaPlayers = mediaPlayers;
       this.requestUpdate();
     } catch (error) {
@@ -312,7 +312,7 @@ class VoiceReplayCard extends LitElement {
     this._status = message;
     this._statusType = type;
     this.requestUpdate();
-    
+
     setTimeout(() => {
       this._status = '';
       this.requestUpdate();
