@@ -150,7 +150,7 @@ jobs:
     steps:
       - name: "Publish Draft Release"
         id: publish-release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             github.rest.repos.updateRelease({
