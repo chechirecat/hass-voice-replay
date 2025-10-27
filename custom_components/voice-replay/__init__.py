@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from .const import CONF_UI_URL, DATA_KEY, DEFAULT_UI_URL, DOMAIN
+from .const import DATA_KEY, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,20 +29,20 @@ async def async_setup_entry(hass, entry) -> bool:
     hass.data[DOMAIN].setdefault(DATA_KEY, {})
 
     # Lazy imports that require Home Assistant runtime
+    from . import panel as panel_mod
     from . import services as services_mod
     from . import ui as ui_mod
 
     # Ensure service registration
     services_mod.register_services(hass)
 
-    # Read UI URL from config entry (fall back to default)
-    ui_url = entry.data.get(CONF_UI_URL, DEFAULT_UI_URL)
-    hass.data[DOMAIN][DATA_KEY]["ui_url"] = ui_url
+    # Register the native UI views (no external URL needed)
+    ui_mod.register_ui_view(hass)
 
-    # Register the redirect view to the configured UI URL.
-    ui_mod.register_ui_view(hass, ui_url)
+    # Register the sidebar panel
+    panel_mod.register_panel(hass)
 
-    _LOGGER.debug("Voice Replay set up (ui_url=%s)", ui_url)
+    _LOGGER.debug("Voice Replay set up with native UI")
     return True
 
 

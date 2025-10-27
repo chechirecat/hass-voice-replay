@@ -1,15 +1,51 @@
-# Voice Replay (Home Assistant custom component)
+# Voice Replay Custom Component
 
-This integration lets you request a voice recording from a Companion/mobile browser and play it on a media_player (Sonos or other), pausing and resuming the current playback.
+A Home Assistant custom component that provides a native voice recording and playback interface.
 
-## How it works
+## Features
 
-- Call the service `voice-replay.request_recording` with the Companion device id (the suffix used in notify service: `notify.mobile_app_<device_id>`) and target `entity_id` (a `media_player.*`).
-- The integration generates a one-time token and sends a notification with a link to a small recording web page.
-- The mobile user taps the link, records a short clip, and uploads it. Home Assistant saves the file under `/config/www/voice-replay/`.
-- The integration pauses the given media_player, plays the uploaded clip via a direct URL, and after the clip duration, attempts to resume the previous playback.
+- **Native Integration**: No external URLs or iframes - runs directly within Home Assistant's authenticated environment
+- **Voice Recording**: Record audio directly from your browser or Home Assistant app
+- **Media Player Integration**: Play recordings on any Home Assistant media player
+- **Sidebar Panel**: Accessible from the Home Assistant sidebar
+- **Secure**: Uses Home Assistant's built-in authentication and API
 
-## Notes
+## Installation
 
-- If Sonos can't play the raw upload, install ffmpeg on the host (or the ffmpeg add-on) — the integration will transcode to MP3 if ffmpeg is available.
-- Add cleanup for /www/voice-replay if you expect many files (not included).
+1. Copy the `voice-replay` folder to your `custom_components` directory
+2. Restart Home Assistant
+3. Go to Configuration > Integrations
+4. Click "Add Integration" and search for "Voice Replay"
+5. Complete the setup (no configuration required)
+
+## Usage
+
+1. After installation, you'll see "Voice Replay" in your Home Assistant sidebar
+2. Click on it to open the voice recording interface
+3. Select a media player from the dropdown
+4. Click the microphone button to start recording
+5. Click again to stop recording
+6. Click "Play Recording" to play it on your selected media player
+
+## API Endpoints
+
+The component provides several API endpoints:
+
+- `/api/voice-replay/panel` - Main UI interface
+- `/api/voice-replay/media_players` - List available media players
+- `/api/voice-replay/upload` - Handle audio upload and playback
+- `/api/voice-replay/media/{filename}` - Serve temporary audio files
+
+## Technical Details
+
+This component creates a native Home Assistant panel that:
+- Uses the browser's MediaRecorder API for audio recording
+- Uploads recordings to Home Assistant's backend
+- Integrates with Home Assistant's media player services
+- Provides a clean, responsive UI that matches Home Assistant's design
+
+No external authentication is required since it runs within Home Assistant's authenticated environment.
+
+## Migration from External UI
+
+This version replaces the previous external URL-based approach with a native Home Assistant integration, eliminating authentication issues and providing a better user experience.
