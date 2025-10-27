@@ -6,7 +6,9 @@ A Home Assistant custom component that provides a native voice recording and pla
 
 - **Native Integration**: No external URLs or iframes - runs directly within Home Assistant's authenticated environment
 - **Voice Recording**: Record audio directly from your browser or Home Assistant app
-- **Media Player Integration**: Play recordings on any Home Assistant media player
+- **Text-to-Speech**: Convert text to speech and play it on media players
+- **Dual Mode Interface**: Switch between voice recording and text-to-speech with radio buttons
+- **Media Player Integration**: Play recordings or generated speech on any Home Assistant media player
 - **Sidebar Panel**: Accessible from the Home Assistant sidebar
 - **Secure**: Uses Home Assistant's built-in authentication and API
 
@@ -20,12 +22,24 @@ A Home Assistant custom component that provides a native voice recording and pla
 
 ## Usage
 
+### Voice Recording Mode
+
 1. After installation, you'll see "Voice Replay" in your Home Assistant sidebar
-2. Click on it to open the voice recording interface
-3. Select a media player from the dropdown
-4. Click the microphone button to start recording
-5. Click again to stop recording
-6. Click "Play Recording" to play it on your selected media player
+2. Click on it to open the interface
+3. Select "Record Voice" mode (default)
+4. Select a media player from the dropdown
+5. Click the microphone button to start recording
+6. Click again to stop recording
+7. Click "Play Recording" to play it on your selected media player
+
+### Text-to-Speech Mode
+
+1. Select "Text-to-Speech" mode using the radio button
+2. Select a media player from the dropdown
+3. Enter your text in the text area
+4. Click "Generate & Play Speech" to convert text to speech and play it
+
+**Note**: Text-to-Speech requires a TTS integration to be configured in Home Assistant (e.g., Google TTS, Amazon Polly, etc.)
 
 ## API Endpoints
 
@@ -33,16 +47,20 @@ The component provides several API endpoints:
 
 - `/api/voice-replay/panel` - Main UI interface
 - `/api/voice-replay/media_players` - List available media players
-- `/api/voice-replay/upload` - Handle audio upload and playback
+- `/api/voice-replay/upload` - Handle audio upload and TTS requests
 - `/api/voice-replay/media/{filename}` - Serve temporary audio files
+- `/api/voice-replay/tts_config` - Get TTS availability and configuration
 
 ## Technical Details
 
 This component creates a native Home Assistant panel that:
+
 - Uses the browser's MediaRecorder API for audio recording
+- Integrates with Home Assistant's TTS services for text-to-speech
 - Uploads recordings to Home Assistant's backend
 - Integrates with Home Assistant's media player services
 - Provides a clean, responsive UI that matches Home Assistant's design
+- Automatically detects TTS availability and shows/hides options accordingly
 
 No external authentication is required since it runs within Home Assistant's authenticated environment.
 

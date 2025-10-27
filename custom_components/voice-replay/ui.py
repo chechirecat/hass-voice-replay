@@ -21,6 +21,8 @@ MEDIA_PLAYERS_URL = f"/api/{DOMAIN}/media_players"
 MEDIA_PLAYERS_NAME = f"api:{DOMAIN}:media_players"
 MEDIA_URL = f"/api/{DOMAIN}/media"
 MEDIA_NAME = f"api:{DOMAIN}:media"
+TTS_CONFIG_URL = f"/api/{DOMAIN}/tts_config"
+TTS_CONFIG_NAME = f"api:{DOMAIN}:tts_config"
 
 
 class VoiceReplayPanelView(HomeAssistantView):
@@ -53,6 +55,36 @@ class VoiceReplayPanelView(HomeAssistantView):
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
+        .mode-selector {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .mode-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+        .mode-option:hover {
+            background-color: rgba(33, 150, 243, 0.1);
+        }
+        .mode-option input[type="radio"] {
+            margin: 0;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.02);
+        }
+        .section.hidden {
+            display: none;
+        }
         .record-button {
             background: #ff5722;
             color: white;
@@ -76,21 +108,37 @@ class VoiceReplayPanelView(HomeAssistantView):
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
-        select, button {
+        select, button, input[type="text"], textarea {
             padding: 10px;
             margin: 5px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 16px;
+            font-family: inherit;
+        }
+        textarea {
+            width: calc(100% - 22px);
+            min-height: 80px;
+            resize: vertical;
         }
         button {
             background: #2196f3;
             color: white;
             cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover:not(:disabled) {
+            background: #1976d2;
         }
         button:disabled {
             background: #ccc;
             cursor: not-allowed;
+        }
+        .tts-button {
+            background: #4caf50;
+        }
+        .tts-button:hover:not(:disabled) {
+            background: #388e3c;
         }
         .status {
             padding: 10px;
@@ -101,13 +149,19 @@ class VoiceReplayPanelView(HomeAssistantView):
         .status.success { background: #c8e6c9; color: #2e7d32; }
         .status.error { background: #ffcdd2; color: #c62828; }
         .status.info { background: #bbdefb; color: #1565c0; }
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card">
             <h2>🎤 Voice Replay</h2>
-            <p>Record audio and play it on your selected media player</p>
+            <p>Record audio or generate speech and play it on your selected media player</p>
 
             <div>
                 <label for="mediaPlayer">Select Media Player:</label>
@@ -116,16 +170,36 @@ class VoiceReplayPanelView(HomeAssistantView):
                 </select>
             </div>
 
-            <button id="recordButton" class="record-button">🎤</button>
+            <div class="mode-selector">
+                <label class="mode-option">
+                    <input type="radio" name="mode" value="record" checked>
+                    <span>🎤 Record Voice</span>
+                </label>
+                <label class="mode-option">
+                    <input type="radio" name="mode" value="tts">
+                    <span>🗣️ Text-to-Speech</span>
+                </label>
+            </div>
 
-            <div>
-                <button id="playButton" disabled>▶️ Play Recording</button>
-                <button id="stopButton" disabled>⏹️ Stop</button>
+            <div id="recordSection" class="section">
+                <h3>Voice Recording</h3>
+                <button id="recordButton" class="record-button">🎤</button>
+                <div class="control-group">
+                    <button id="playRecordingButton" disabled>▶️ Play Recording</button>
+                    <button id="stopButton" disabled>⏹️ Stop</button>
+                </div>
+                <audio id="audioPlayback" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
+            </div>
+
+            <div id="ttsSection" class="section hidden">
+                <h3>Text-to-Speech</h3>
+                <textarea id="ttsText" placeholder="Enter the text you want to convert to speech..."></textarea>
+                <div class="control-group">
+                    <button id="generateSpeechButton" class="tts-button">🗣️ Generate & Play Speech</button>
+                </div>
             </div>
 
             <div id="status" class="status" style="display: none;"></div>
-
-            <audio id="audioPlayback" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
         </div>
     </div>
 
@@ -135,14 +209,36 @@ class VoiceReplayPanelView(HomeAssistantView):
         let isRecording = false;
 
         const recordButton = document.getElementById('recordButton');
-        const playButton = document.getElementById('playButton');
+        const playRecordingButton = document.getElementById('playRecordingButton');
         const stopButton = document.getElementById('stopButton');
         const mediaPlayerSelect = document.getElementById('mediaPlayer');
         const statusDiv = document.getElementById('status');
         const audioPlayback = document.getElementById('audioPlayback');
+        const ttsText = document.getElementById('ttsText');
+        const generateSpeechButton = document.getElementById('generateSpeechButton');
+        const recordSection = document.getElementById('recordSection');
+        const ttsSection = document.getElementById('ttsSection');
+        const modeRadios = document.querySelectorAll('input[name="mode"]');
 
-        // Load media players on page load
+        // Load media players and TTS config on page load
         loadMediaPlayers();
+        checkTTSAvailability();
+
+        // Mode switching
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', switchMode);
+        });
+
+        function switchMode() {
+            const selectedMode = document.querySelector('input[name="mode"]:checked').value;
+            if (selectedMode === 'record') {
+                recordSection.classList.remove('hidden');
+                ttsSection.classList.add('hidden');
+            } else {
+                recordSection.classList.add('hidden');
+                ttsSection.classList.remove('hidden');
+            }
+        }
 
         async function loadMediaPlayers() {
             try {
@@ -161,9 +257,35 @@ class VoiceReplayPanelView(HomeAssistantView):
             }
         }
 
+        async function checkTTSAvailability() {
+            try {
+                const response = await fetch('/api/voice-replay/tts_config');
+                const config = await response.json();
+
+                if (!config.available) {
+                    // Hide TTS option if not available
+                    const ttsRadio = document.querySelector('input[value="tts"]');
+                    const ttsLabel = ttsRadio.closest('.mode-option');
+                    ttsLabel.style.display = 'none';
+
+                    // Show a note about TTS not being available
+                    const note = document.createElement('p');
+                    note.style.color = '#666';
+                    note.style.fontSize = '14px';
+                    note.style.fontStyle = 'italic';
+                    note.textContent = 'Text-to-Speech is not configured in Home Assistant';
+                    document.querySelector('.mode-selector').appendChild(note);
+                }
+            } catch (error) {
+                console.warn('Could not check TTS availability:', error);
+            }
+        }
+
+        // Event listeners
         recordButton.addEventListener('click', toggleRecording);
-        playButton.addEventListener('click', playRecording);
+        playRecordingButton.addEventListener('click', playRecording);
         stopButton.addEventListener('click', stopPlayback);
+        generateSpeechButton.addEventListener('click', generateAndPlaySpeech);
 
         async function toggleRecording() {
             if (!isRecording) {
@@ -190,7 +312,7 @@ class VoiceReplayPanelView(HomeAssistantView):
                     const url = URL.createObjectURL(blob);
                     audioPlayback.src = url;
                     audioPlayback.style.display = 'block';
-                    playButton.disabled = false;
+                    playRecordingButton.disabled = false;
 
                     // Stop all tracks to release microphone
                     stream.getTracks().forEach(track => track.stop());
@@ -234,6 +356,7 @@ class VoiceReplayPanelView(HomeAssistantView):
                 const formData = new FormData();
                 formData.append('audio', blob, 'recording.webm');
                 formData.append('entity_id', selectedPlayer);
+                formData.append('type', 'recording');
 
                 showStatus('Uploading and playing...', 'info');
 
@@ -250,6 +373,48 @@ class VoiceReplayPanelView(HomeAssistantView):
                 }
             } catch (error) {
                 showStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function generateAndPlaySpeech() {
+            const selectedPlayer = mediaPlayerSelect.value;
+            const text = ttsText.value.trim();
+
+            if (!selectedPlayer) {
+                showStatus('Please select a media player', 'error');
+                return;
+            }
+
+            if (!text) {
+                showStatus('Please enter some text', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('text', text);
+                formData.append('entity_id', selectedPlayer);
+                formData.append('type', 'tts');
+
+                showStatus('Generating speech and playing...', 'info');
+                generateSpeechButton.disabled = true;
+
+                const response = await fetch('/api/voice-replay/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    showStatus('Playing speech on ' + mediaPlayerSelect.options[mediaPlayerSelect.selectedIndex].text, 'success');
+                    stopButton.disabled = false;
+                } else {
+                    const errorData = await response.json();
+                    showStatus('Failed to generate speech: ' + (errorData.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                generateSpeechButton.disabled = false;
             }
         }
 
@@ -298,51 +463,91 @@ class VoiceReplayUploadView(HomeAssistantView):
         self.hass = hass
 
     async def post(self, request: web.Request) -> web.Response:
-        """Handle audio upload and trigger playback."""
+        """Handle audio upload or text-to-speech and trigger playback."""
         try:
             reader = await request.multipart()
-            audio_field = await reader.next()
-            entity_id_field = await reader.next()
 
-            if not audio_field or not entity_id_field:
-                return web.json_response(
-                    {"error": "Missing audio or entity_id"}, status=400
-                )
+            # Read all form fields
+            fields = {}
+            while True:
+                field = await reader.next()
+                if field is None:
+                    break
 
-            audio_data = await audio_field.read()
-            entity_id = (await entity_id_field.read()).decode()
+                field_name = field.name
+                if field_name in ['audio']:
+                    fields[field_name] = await field.read()
+                else:
+                    fields[field_name] = (await field.read()).decode()
 
-            # Save audio temporarily and create a media URL
+            entity_id = fields.get('entity_id')
+            request_type = fields.get('type', 'recording')
+
+            if not entity_id:
+                return web.json_response({"error": "Missing entity_id"}, status=400)
+
             import os
             import tempfile
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp_file:
-                tmp_file.write(audio_data)
-                temp_path = tmp_file.name
+            if request_type == 'tts':
+                # Handle text-to-speech
+                text = fields.get('text')
+                if not text:
+                    return web.json_response({"error": "Missing text for TTS"}, status=400)
 
-            # Create a URL that Home Assistant can serve
-            media_url = f"/api/{DOMAIN}/media/{os.path.basename(temp_path)}"
+                # Use Home Assistant's TTS service
+                try:
+                    # Call TTS service to speak directly to media player
+                    await self.hass.services.async_call(
+                        "tts",
+                        "speak",
+                        {
+                            "entity_id": entity_id,
+                            "message": text,
+                        },
+                        blocking=True,
+                    )
 
-            # Store the file path for serving
-            self.hass.data.setdefault(DOMAIN, {})
-            self.hass.data[DOMAIN][os.path.basename(temp_path)] = temp_path
+                    return web.json_response({"status": "success", "message": "Playing TTS audio"})
 
-            # Call the media player service
-            await self.hass.services.async_call(
-                "media_player",
-                "play_media",
-                {
-                    "entity_id": entity_id,
-                    "media_content_id": f"http://localhost:8123{media_url}",
-                    "media_content_type": "audio/webm",
-                },
-                blocking=True,
-            )
+                except Exception as tts_error:
+                    _LOGGER.error("TTS service error: %s", tts_error)
+                    return web.json_response({"error": f"TTS service failed: {str(tts_error)}"}, status=500)
 
-            return web.json_response({"status": "success", "message": "Playing audio"})
+            else:
+                # Handle audio recording
+                audio_data = fields.get('audio')
+                if not audio_data:
+                    return web.json_response({"error": "Missing audio data"}, status=400)
+
+                # Save audio temporarily and create a media URL
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:
+                    tmp_file.write(audio_data)
+                    temp_path = tmp_file.name
+
+                # Create a URL that Home Assistant can serve
+                media_url = f"/api/{DOMAIN}/media/{os.path.basename(temp_path)}"
+
+                # Store the file path for serving
+                self.hass.data.setdefault(DOMAIN, {})
+                self.hass.data[DOMAIN][os.path.basename(temp_path)] = temp_path
+
+                # Call the media player service
+                await self.hass.services.async_call(
+                    "media_player",
+                    "play_media",
+                    {
+                        "entity_id": entity_id,
+                        "media_content_id": f"http://localhost:8123{media_url}",
+                        "media_content_type": "audio/webm",
+                    },
+                    blocking=True,
+                )
+
+                return web.json_response({"status": "success", "message": "Playing audio"})
 
         except Exception as e:
-            _LOGGER.error("Error handling audio upload: %s", e)
+            _LOGGER.error("Error handling upload request: %s", e)
             return web.json_response({"error": str(e)}, status=500)
 
 
@@ -415,9 +620,46 @@ class VoiceReplayMediaView(HomeAssistantView):
             return web.Response(status=500)
 
 
+class VoiceReplayTTSConfigView(HomeAssistantView):
+    """Get TTS configuration and available services."""
+
+    url = TTS_CONFIG_URL
+    name = TTS_CONFIG_NAME
+    requires_auth = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        super().__init__()
+        self.hass = hass
+
+    async def get(self, request: web.Request) -> web.Response:
+        """Return TTS configuration."""
+        try:
+            # Check if TTS is available
+            tts_services = []
+            if self.hass.services.has_service("tts", "speak"):
+                # Get available TTS engines
+                tts_domain = self.hass.data.get("tts", {})
+                if tts_domain:
+                    for service_name in self.hass.services.async_services().get("tts", {}):
+                        tts_services.append(service_name)
+                else:
+                    # Fallback - assume basic TTS is available
+                    tts_services.append("speak")
+
+            return web.json_response({
+                "available": len(tts_services) > 0,
+                "services": tts_services,
+                "default_service": "speak" if tts_services else None
+            })
+        except Exception as e:
+            _LOGGER.error("Error getting TTS config: %s", e)
+            return web.json_response({"available": False, "services": [], "error": str(e)})
+
+
 def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:
     """Register the native UI views."""
     hass.http.register_view(VoiceReplayPanelView())
     hass.http.register_view(VoiceReplayUploadView(hass))
     hass.http.register_view(VoiceReplayMediaPlayersView(hass))
     hass.http.register_view(VoiceReplayMediaView(hass))
+    hass.http.register_view(VoiceReplayTTSConfigView(hass))
