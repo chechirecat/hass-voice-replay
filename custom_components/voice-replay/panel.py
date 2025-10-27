@@ -14,9 +14,6 @@ def register_panel(hass: HomeAssistant) -> None:
         sidebar_title="Voice Replay",
         sidebar_icon="mdi:microphone",
         frontend_url_path="voice-replay",
-        config={
-            "url": f"/api/{DOMAIN}/panel",
-            "title": "Voice Replay"
-        },
+        config={"url": f"/api/{DOMAIN}/panel", "title": "Voice Replay"},
         require_admin=False,
     )

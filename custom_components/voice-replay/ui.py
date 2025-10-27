@@ -305,7 +305,9 @@ class VoiceReplayUploadView(HomeAssistantView):
             entity_id_field = await reader.next()
 
             if not audio_field or not entity_id_field:
-                return web.json_response({"error": "Missing audio or entity_id"}, status=400)
+                return web.json_response(
+                    {"error": "Missing audio or entity_id"}, status=400
+                )
 
             audio_data = await audio_field.read()
             entity_id = (await entity_id_field.read()).decode()
@@ -314,7 +316,7 @@ class VoiceReplayUploadView(HomeAssistantView):
             import os
             import tempfile
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp_file:
                 tmp_file.write(audio_data)
                 temp_path = tmp_file.name
 
@@ -361,11 +363,13 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
 
         for entity_id, state in self.hass.states.async_all():
             if entity_id.startswith("media_player."):
-                media_players.append({
-                    "entity_id": entity_id,
-                    "name": state.attributes.get("friendly_name", entity_id),
-                    "state": state.state
-                })
+                media_players.append(
+                    {
+                        "entity_id": entity_id,
+                        "name": state.attributes.get("friendly_name", entity_id),
+                        "state": state.state
+                    }
+                )
 
         return web.json_response(media_players)
 
@@ -394,16 +398,17 @@ class VoiceReplayMediaView(HomeAssistantView):
 
         try:
             import os
+
             if not os.path.exists(file_path):
                 return web.Response(status=404)
 
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 content = f.read()
 
             return web.Response(
                 body=content,
-                content_type='audio/webm',
-                headers={'Content-Disposition': f'inline; filename="{filename}"'}
+                content_type="audio/webm",
+                headers={"Content-Disposition": f'inline; filename="{filename}"'}
             )
         except Exception as e:
             _LOGGER.error("Error serving media file %s: %s", filename, e)
