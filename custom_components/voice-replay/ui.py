@@ -236,7 +236,7 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
                 {
                     "available": len(tts_services) > 0,
                     "services": tts_services,
-                    "default_service": "speak" if tts_services else None
+                    "default_service": "speak" if tts_services else None,
                 }
             )
         except Exception as e:
