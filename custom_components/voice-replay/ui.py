@@ -168,7 +168,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                                     mp3_temp_path,
                                 ],
                                 check=True,
-                                capture_output=True
+                                capture_output=True,
                             )
 
                             # Replace original with converted file
@@ -235,7 +235,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                             "music",
                             "audio/mpeg",
                             "audio/x-mp3",
-                            "application/octet-stream"
+                            "application/octet-stream",
                         ]
 
                         for alt_type in alternative_types:
@@ -243,7 +243,8 @@ class VoiceReplayUploadView(HomeAssistantView):
                                 continue  # Skip the one we already tried
 
                             _LOGGER.info(
-                                "Trying alternative content type: %s", alt_type,
+                                "Trying alternative content type: %s",
+                                alt_type,
                             )
                             try:
                                 await self.hass.services.async_call(
@@ -257,7 +258,8 @@ class VoiceReplayUploadView(HomeAssistantView):
                                     blocking=True,
                                 )
                                 _LOGGER.info(
-                                    "Successfully played with content type: %s", alt_type,
+                                    "Successfully played with content type: %s",
+                                    alt_type,
                                 )
                                 break
                             except Exception as alt_error:
