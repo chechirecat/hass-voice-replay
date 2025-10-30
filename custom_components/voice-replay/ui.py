@@ -118,7 +118,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                     media_content_type = "audio/wav"
                 elif "webm" in provided_content_type:
                     # Convert WebM to MP3 for Sonos compatibility
-                    _LOGGER.info("WebM audio received - converting to MP3 for Sonos compatibility")
+                    _LOGGER.info(
+                        "WebM audio received - converting to MP3 for Sonos compatibility"
+                    )
                     file_extension = ".mp3"
                     # Use 'music' content type for Sonos compatibility
                     media_content_type = "music"
@@ -127,7 +129,11 @@ class VoiceReplayUploadView(HomeAssistantView):
                     file_extension = ".webm"
                     media_content_type = "audio/webm"
 
-                _LOGGER.info("Processing audio upload: %s -> %s", provided_content_type, file_extension)
+                _LOGGER.info(
+                    "Processing audio upload: %s -> %s",
+                    provided_content_type,
+                    file_extension
+                )
 
                 # Save audio temporarily with correct extension
                 with tempfile.NamedTemporaryFile(
@@ -149,11 +155,21 @@ class VoiceReplayUploadView(HomeAssistantView):
                             mp3_temp_path = temp_path.replace(".mp3", "_converted.mp3")
 
                             # Convert using ffmpeg
-                            subprocess.run([
-                                "ffmpeg", "-i", temp_path, "-y",
-                                "-acodec", "libmp3lame", "-b:a", "128k",
-                                mp3_temp_path
-                            ], check=True, capture_output=True)
+                            subprocess.run(
+                                [
+                                    "ffmpeg",
+                                    "-i",
+                                    temp_path,
+                                    "-y",
+                                    "-acodec",
+                                    "libmp3lame",
+                                    "-b:a",
+                                    "128k",
+                                    mp3_temp_path
+                                ],
+                                check=True,
+                                capture_output=True
+                            )
 
                             # Replace original with converted file
                             os.remove(temp_path)
@@ -183,8 +199,12 @@ class VoiceReplayUploadView(HomeAssistantView):
 
                 # Play media with the final content type
                 final_content_type = media_content_type
-                _LOGGER.info("Playing %s on %s with content type %s",
-                            file_extension, entity_id, final_content_type)
+                _LOGGER.info(
+                    "Playing %s on %s with content type %s",
+                    file_extension,
+                    entity_id,
+                    final_content_type
+                )
 
                 # Try to play the media
                 try:
@@ -200,17 +220,32 @@ class VoiceReplayUploadView(HomeAssistantView):
                     )
                 except Exception as play_error:
                     # If MP3 fails on Sonos, try alternative content types
-                    if "does not support media content type" in str(play_error) and file_extension == ".mp3":
-                        _LOGGER.warning("Initial content type %s failed: %s", final_content_type, play_error)
+                    if (
+                        "does not support media content type" in str(play_error)
+                        and file_extension == ".mp3"
+                    ):
+                        _LOGGER.warning(
+                            "Initial content type %s failed: %s",
+                            final_content_type,
+                            play_error
+                        )
 
                         # Try alternative content types for MP3
-                        alternative_types = ["music", "audio/mpeg", "audio/x-mp3", "application/octet-stream"]
+                        alternative_types = [
+                            "music",
+                            "audio/mpeg",
+                            "audio/x-mp3",
+                            "application/octet-stream"
+                        ]
 
                         for alt_type in alternative_types:
                             if alt_type == final_content_type:
                                 continue  # Skip the one we already tried
 
-                            _LOGGER.info("Trying alternative content type: %s", alt_type)
+                            _LOGGER.info(
+                                "Trying alternative content type: %s",
+                                alt_type
+                            )
                             try:
                                 await self.hass.services.async_call(
                                     "media_player",
@@ -222,10 +257,17 @@ class VoiceReplayUploadView(HomeAssistantView):
                                     },
                                     blocking=True,
                                 )
-                                _LOGGER.info("Successfully played with content type: %s", alt_type)
+                                _LOGGER.info(
+                                    "Successfully played with content type: %s",
+                                    alt_type
+                                )
                                 break
                             except Exception as alt_error:
-                                _LOGGER.warning("Content type %s also failed: %s", alt_type, alt_error)
+                                _LOGGER.warning(
+                                    "Content type %s also failed: %s",
+                                    alt_type,
+                                    alt_error
+                                )
                                 continue
                         else:
                             # All content types failed, re-raise the original error
@@ -241,6 +283,7 @@ class VoiceReplayUploadView(HomeAssistantView):
         except Exception as e:
             _LOGGER.error("Error handling upload request: %s", e)
             return web.json_response({"error": str(e)}, status=500)
+
 
 class VoiceReplayMediaPlayersView(HomeAssistantView):
     """Get available media players."""
@@ -267,8 +310,12 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
                     "state": state.state,
                 }
                 media_players.append(player_info)
-                _LOGGER.debug("Added media player: %s (%s) - %s",
-                             player_info["name"], player_info["entity_id"], player_info["state"])
+                _LOGGER.debug(
+                    "Added media player: %s (%s) - %s",
+                    player_info["name"],
+                    player_info["entity_id"],
+                    player_info["state"]
+                )
 
         _LOGGER.info("Found %d media players total", len(media_players))
         _LOGGER.debug("Returning media players: %s", [p["name"] for p in media_players])
@@ -309,13 +356,13 @@ class VoiceReplayMediaView(HomeAssistantView):
 
             # Determine content type from file extension
             content_type = "audio/webm"  # default
-            if filename.endswith('.m4a'):
+            if filename.endswith(".m4a"):
                 content_type = "audio/mp4"
-            elif filename.endswith('.mp3'):
+            elif filename.endswith(".mp3"):
                 content_type = "audio/mpeg"
-            elif filename.endswith('.wav'):
+            elif filename.endswith(".wav"):
                 content_type = "audio/wav"
-            elif filename.endswith('.webm'):
+            elif filename.endswith(".webm"):
                 content_type = "audio/webm"
 
             return web.Response(
