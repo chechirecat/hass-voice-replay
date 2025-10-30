@@ -132,7 +132,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                 _LOGGER.info(
                     "Processing audio upload: %s -> %s",
                     provided_content_type,
-                    file_extension
+                    file_extension,
                 )
 
                 # Save audio temporarily with correct extension
@@ -165,7 +165,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                                     "libmp3lame",
                                     "-b:a",
                                     "128k",
-                                    mp3_temp_path
+                                    mp3_temp_path,
                                 ],
                                 check=True,
                                 capture_output=True
@@ -203,7 +203,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                     "Playing %s on %s with content type %s",
                     file_extension,
                     entity_id,
-                    final_content_type
+                    final_content_type,
                 )
 
                 # Try to play the media
@@ -227,7 +227,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                         _LOGGER.warning(
                             "Initial content type %s failed: %s",
                             final_content_type,
-                            play_error
+                            play_error,
                         )
 
                         # Try alternative content types for MP3
@@ -243,8 +243,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                                 continue  # Skip the one we already tried
 
                             _LOGGER.info(
-                                "Trying alternative content type: %s",
-                                alt_type
+                                "Trying alternative content type: %s", alt_type,
                             )
                             try:
                                 await self.hass.services.async_call(
@@ -258,15 +257,14 @@ class VoiceReplayUploadView(HomeAssistantView):
                                     blocking=True,
                                 )
                                 _LOGGER.info(
-                                    "Successfully played with content type: %s",
-                                    alt_type
+                                    "Successfully played with content type: %s", alt_type,
                                 )
                                 break
                             except Exception as alt_error:
                                 _LOGGER.warning(
                                     "Content type %s also failed: %s",
                                     alt_type,
-                                    alt_error
+                                    alt_error,
                                 )
                                 continue
                         else:
@@ -314,7 +312,7 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
                     "Added media player: %s (%s) - %s",
                     player_info["name"],
                     player_info["entity_id"],
-                    player_info["state"]
+                    player_info["state"],
                 )
 
         _LOGGER.info("Found %d media players total", len(media_players))
