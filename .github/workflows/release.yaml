@@ -55,7 +55,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          prerelease: true
+          prerelease: false
           body: ${{ steps.git-cliff.outputs.content }}
           tag_name: ${{ steps.info.outputs.tag_name }}
           target_commitish: '${{ github.sha }}'
