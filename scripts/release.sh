@@ -74,7 +74,7 @@ get_pyproject_version() {
 # Extract version from test.js
 get_testjs_version() {
     if [[ -f "$TESTJS_FILE" ]]; then
-        grep "Version " "$TESTJS_FILE" | sed 's/.*Version \([0-9.]*\).*/\1/'
+        grep "Version [0-9]" "$TESTJS_FILE" | sed 's/.*Version \([0-9.]*\).*/\1/'
     fi
 }
 
