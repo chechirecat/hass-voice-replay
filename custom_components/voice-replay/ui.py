@@ -213,7 +213,7 @@ class VoiceReplayUploadView(HomeAssistantView):
         self.hass.async_create_task(cleanup_temp_file())
 
     async def _play_audio(
-            self, entity_id: str, media_url: str, final_content_type: str, temp_path: str
+        self, entity_id: str, media_url: str, final_content_type: str, temp_path: str
     ) -> None:
         """Play audio on the specified media player."""
         external_url = self.hass.config.external_url or "http://localhost:8123"
