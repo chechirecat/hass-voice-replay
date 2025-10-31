@@ -148,7 +148,7 @@ Contributions are welcome! Please:
 4. Test thoroughly
 5. Submit a pull request
 
-**📖 [Development Guide →](docs/DEVELOPMENT.md)** - Detailed contribution guidelines and setup
+**📖 [Documentation Index →](docs/README.md)** - Detailed contribution guidelines and setup
 
 ## License
 
