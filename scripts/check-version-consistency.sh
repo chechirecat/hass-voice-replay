@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🔍 Checking version consistency..."
+echo "Checking version consistency..."
 
 # Color codes for output
 RED='\033[0;31m'
@@ -49,6 +49,17 @@ get_card_version() {
     fi
 }
 
+# Function to extract version from latest git tag
+get_git_tag_version() {
+    # Get the latest tag that matches v*.*.* pattern
+    local latest_tag=$(git describe --tags --abbrev=0 --match="v*.*.*" 2>/dev/null || echo "")
+    if [[ -n "$latest_tag" && "$latest_tag" =~ ^v(.+)$ ]]; then
+        echo "${BASH_REMATCH[1]}"  # Return version without 'v' prefix
+    else
+        echo ""
+    fi
+}
+
 # Function to extract version from package.json
 get_package_version() {
     if [[ -f "package.json" ]]; then
@@ -64,7 +75,7 @@ check_repository_versions() {
     local expected_version="$2"
     local errors=0
     
-    echo -e "\n📦 Checking ${YELLOW}${repo_name}${NC} repository..."
+    echo -e "\nChecking ${YELLOW}${repo_name}${NC} repository..."
     
     if [[ "$repo_name" == "hass-voice-replay" ]]; then
         # Backend repository checks
@@ -74,34 +85,34 @@ check_repository_versions() {
         
         if [[ -n "$manifest_version" ]]; then
             if [[ "$manifest_version" == "$expected_version" ]]; then
-                echo -e "  ✅ manifest.json: ${GREEN}${manifest_version}${NC}"
+                echo -e "  manifest.json: ${GREEN}${manifest_version}${NC}"
             else
-                echo -e "  ❌ manifest.json: ${RED}${manifest_version}${NC} (expected: ${expected_version})"
+                echo -e "  manifest.json: ${RED}${manifest_version}${NC} (expected: ${expected_version})"
                 errors=$((errors + 1))
             fi
         fi
         
         if [[ -n "$pyproject_version" ]]; then
             if [[ "$pyproject_version" == "$expected_version" ]]; then
-                echo -e "  ✅ pyproject.toml: ${GREEN}${pyproject_version}${NC}"
+                echo -e "  pyproject.toml: ${GREEN}${pyproject_version}${NC}"
             else
-                echo -e "  ❌ pyproject.toml: ${RED}${pyproject_version}${NC} (expected: ${expected_version})"
+                echo -e "  pyproject.toml: ${RED}${pyproject_version}${NC} (expected: ${expected_version})"
                 errors=$((errors + 1))
             fi
         fi
         
         if [[ -n "$testjs_version" ]]; then
             if [[ "$testjs_version" == "$expected_version" ]]; then
-                echo -e "  ✅ test.js: ${GREEN}${testjs_version}${NC}"
+                echo -e "  test.js: ${GREEN}${testjs_version}${NC}"
             else
-                echo -e "  ❌ test.js: ${RED}${testjs_version}${NC} (expected: ${expected_version})"
+                echo -e "  test.js: ${RED}${testjs_version}${NC} (expected: ${expected_version})"
                 errors=$((errors + 1))
             fi
         fi
         
         # Check if there are any other version references in Python files
         if grep -r "version.*=.*['\"].*[0-9]" custom_components/ --include="*.py" 2>/dev/null | grep -v "__pycache__" | grep -v ".pyc"; then
-            echo -e "  ⚠️  ${YELLOW}Found version references in Python files - please verify manually${NC}"
+            echo -e "  ${YELLOW}Found version references in Python files - please verify manually${NC}"
         fi
         
     elif [[ "$repo_name" == "hass-voice-replay-card" ]]; then
@@ -111,21 +122,34 @@ check_repository_versions() {
         
         if [[ -n "$card_version" ]]; then
             if [[ "$card_version" == "$expected_version" ]]; then
-                echo -e "  ✅ voice-replay-card.js: ${GREEN}${card_version}${NC}"
+                echo -e "  voice-replay-card.js: ${GREEN}${card_version}${NC}"
             else
-                echo -e "  ❌ voice-replay-card.js: ${RED}${card_version}${NC} (expected: ${expected_version})"
+                echo -e "  voice-replay-card.js: ${RED}${card_version}${NC} (expected: ${expected_version})"
                 errors=$((errors + 1))
             fi
         fi
         
         if [[ -n "$package_version" ]]; then
             if [[ "$package_version" == "$expected_version" ]]; then
-                echo -e "  ✅ package.json: ${GREEN}${package_version}${NC}"
+                echo -e "  package.json: ${GREEN}${package_version}${NC}"
             else
-                echo -e "  ❌ package.json: ${RED}${package_version}${NC} (expected: ${expected_version})"
+                echo -e "  package.json: ${RED}${package_version}${NC} (expected: ${expected_version})"
                 errors=$((errors + 1))
             fi
         fi
+    fi
+    
+    # Check git tag version (applies to both repositories)
+    git_tag_version=$(get_git_tag_version)
+    if [[ -n "$git_tag_version" ]]; then
+        if [[ "$git_tag_version" == "$expected_version" ]]; then
+            echo -e "  latest git tag: ${GREEN}v${git_tag_version}${NC}"
+        else
+            echo -e "  latest git tag: ${RED}v${git_tag_version}${NC} (expected: v${expected_version})"
+            errors=$((errors + 1))
+        fi
+    else
+        echo -e "  ${YELLOW}No git tags found matching v*.*.* pattern${NC}"
     fi
     
     return $errors
@@ -136,18 +160,18 @@ if [[ -f "custom_components/voice-replay/manifest.json" ]]; then
     # We're in the backend repository
     REPO_NAME="hass-voice-replay"
     VERSION=$(get_manifest_version)
-    echo -e "📍 Detected repository: ${YELLOW}${REPO_NAME}${NC}"
-    echo -e "🎯 Target version: ${GREEN}${VERSION}${NC}"
+    echo -e "Detected repository: ${YELLOW}${REPO_NAME}${NC}"
+    echo -e "Target version: ${GREEN}${VERSION}${NC}"
     
 elif [[ -f "voice-replay-card.js" ]]; then
     # We're in the frontend repository
     REPO_NAME="hass-voice-replay-card"
     VERSION=$(get_card_version)
-    echo -e "📍 Detected repository: ${YELLOW}${REPO_NAME}${NC}"
-    echo -e "🎯 Target version: ${GREEN}${VERSION}${NC}"
+    echo -e "Detected repository: ${YELLOW}${REPO_NAME}${NC}"
+    echo -e "Target version: ${GREEN}${VERSION}${NC}"
     
 else
-    echo -e "${RED}❌ Could not detect Voice Replay repository type${NC}"
+    echo -e "${RED}Could not detect Voice Replay repository type${NC}"
     echo "This script should be run from either:"
     echo "  - hass-voice-replay repository (contains custom_components/)"
     echo "  - hass-voice-replay-card repository (contains voice-replay-card.js)"
@@ -155,7 +179,7 @@ else
 fi
 
 if [[ -z "$VERSION" ]]; then
-    echo -e "${RED}❌ Could not extract version from primary source${NC}"
+    echo -e "${RED}Could not extract version from primary source${NC}"
     exit 1
 fi
 
@@ -165,14 +189,14 @@ check_repository_versions "$REPO_NAME" "$VERSION"
 total_errors=$?
 
 # Summary
-echo -e "\n📊 Version Consistency Check Summary:"
+echo -e "\nVersion Consistency Check Summary:"
 if [[ $total_errors -eq 0 ]]; then
-    echo -e "✅ ${GREEN}All versions are consistent!${NC}"
-    echo -e "📌 Version: ${GREEN}${VERSION}${NC}"
+    echo -e "${GREEN}All versions are consistent!${NC}"
+    echo -e "Version: ${GREEN}${VERSION}${NC}"
     exit 0
 else
-    echo -e "❌ ${RED}Found ${total_errors} version inconsistency/ies${NC}"
-    echo -e "\n🔧 To fix version inconsistencies:"
+    echo -e "${RED}Found ${total_errors} version inconsistency/ies${NC}"
+    echo -e "\nTo fix version inconsistencies:"
     
     if [[ "$REPO_NAME" == "hass-voice-replay" ]]; then
         echo "  1. Update custom_components/voice-replay/manifest.json"
@@ -184,6 +208,6 @@ else
         echo "  2. Update version in package.json"
     fi
     
-    echo -e "\n💡 All versions should be: ${GREEN}${VERSION}${NC}"
+    echo -e "\nAll versions should be: ${GREEN}${VERSION}${NC}"
     exit 1
 fi

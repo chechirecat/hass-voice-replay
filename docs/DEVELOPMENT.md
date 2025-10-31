@@ -59,6 +59,13 @@ The project includes several development tools:
 
 ### Running Development Tools
 
+**Note for Windows PowerShell users:** Before running PowerShell scripts, you may need to set the execution policy. See **[PowerShell Execution Policy Guide](POWERSHELL_EXECUTION_POLICY.md)** for detailed instructions.
+
+```powershell
+# Quick setup - allows local scripts to run
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 ```bash
 # Run all linting checks
 ./scripts/lint.sh
@@ -71,6 +78,16 @@ mypy custom_components/voice-replay/
 
 # Run tests
 pytest tests/
+```
+
+**PowerShell equivalents:**
+
+```powershell
+# Version consistency check
+.\scripts\check-version-consistency.ps1 -Verbose
+
+# Release automation  
+.\scripts\release.ps1
 ```
 
 ## Project Structure

@@ -33,14 +33,26 @@ Both scripts provide identical functionality with platform-appropriate implement
 
 ### PowerShell Usage
 
+**Important:** Before running PowerShell scripts, you may need to set the execution policy. See **[PowerShell Execution Policy Guide](POWERSHELL_EXECUTION_POLICY.md)** for complete details.
+
+```powershell
+# Quick setup - required for most Windows systems
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Then you can run the release scripts:
+
 ```powershell
 # Show help and options
-.\scripts\release.ps1 --help
+.\scripts\release.ps1 -Help
 
 # Create releases
 .\scripts\release.ps1
 .\scripts\release.ps1 -Increment minor
 .\scripts\release.ps1 -Increment major
+
+# Check version consistency
+.\scripts\check-version-consistency.ps1 -Verbose
 ```
 
 ## Release Process Flow
