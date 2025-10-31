@@ -288,7 +288,15 @@ class VoiceReplayUploadView(HomeAssistantView):
 
     async def _play_on_sonos(self, entity_id: str, full_media_url: str) -> bool:
         """Try to play on Sonos with different content types."""
-        sonos_content_types = ["audio/mpeg", "audio/mp3", "audio/x-mpeg"]
+        # Try multiple content types that work with Sonos URL streaming
+        sonos_content_types = [
+            "audio/mpeg",
+            "audio/mp3",
+            "audio/x-mpeg",
+            "audio/x-mp3",
+            "music",
+            "application/octet-stream"
+        ]
 
         for sonos_type in sonos_content_types:
             try:
@@ -308,10 +316,43 @@ class VoiceReplayUploadView(HomeAssistantView):
                 _LOGGER.info("Successfully started Sonos playback with: %s", sonos_type)
                 return True
             except Exception as sonos_error:
-                _LOGGER.warning(
-                    "Sonos content type %s failed: %s", sonos_type, sonos_error
-                )
-                continue
+                # Handle specific UPnP errors
+                if "UPnP Error 701" in str(sonos_error) or "Transition not available" in str(sonos_error):
+                    _LOGGER.warning("Sonos transition error with %s: %s", sonos_type, sonos_error)
+                    _LOGGER.info("Retrying after clearing Sonos state...")
+
+                    try:
+                        # Try to clear the Sonos state
+                        await self.hass.services.async_call(
+                            "media_player",
+                            "media_stop",
+                            {"entity_id": entity_id},
+                            blocking=True,
+                        )
+                        import asyncio
+                        await asyncio.sleep(1.0)  # Longer delay for problematic state
+
+                        # Retry the play command with this content type
+                        await self.hass.services.async_call(
+                            "media_player",
+                            "play_media",
+                            {
+                                "entity_id": entity_id,
+                                "media_content_id": full_media_url,
+                                "media_content_type": sonos_type,
+                            },
+                            blocking=True,
+                        )
+                        _LOGGER.info("Successfully played after Sonos state recovery with: %s", sonos_type)
+                        return True
+                    except Exception as retry_error:
+                        _LOGGER.error("Sonos retry with %s also failed: %s", sonos_type, retry_error)
+                        continue  # Try next content type
+                else:
+                    _LOGGER.warning(
+                        "Sonos content type %s failed: %s", sonos_type, sonos_error
+                    )
+                    continue
 
         return False
 
