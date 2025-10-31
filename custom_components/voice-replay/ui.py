@@ -89,7 +89,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 {"error": f"TTS service failed: {str(tts_error)}"}, status=500
             )
 
-    async def _handle_audio_recording(self, entity_id: str, fields: dict) -> web.Response:
+    async def _handle_audio_recording(
+        self, entity_id: str, fields: dict
+    ) -> web.Response:
         """Handle audio recording upload and playback."""
         import os
         import tempfile
@@ -152,7 +154,7 @@ class VoiceReplayUploadView(HomeAssistantView):
             return ".webm", "audio/webm"
 
     async def _convert_webm_to_mp3(
-            self, temp_path: str, provided_content_type: str, file_extension: str
+        self, temp_path: str, provided_content_type: str, file_extension: str
     ) -> str:
         """Convert WebM to MP3 if needed and return final content type."""
         if "webm" in provided_content_type and file_extension == ".mp3":
@@ -275,7 +277,10 @@ class VoiceReplayUploadView(HomeAssistantView):
             try:
                 _LOGGER.debug("Falling back to simple stop for Sonos")
                 await self.hass.services.async_call(
-                    "media_player", "media_stop", {"entity_id": entity_id}, blocking=True,
+                    "media_player",
+                    "media_stop",
+                    {"entity_id": entity_id},
+                    blocking=True,
                 )
                 await asyncio.sleep(0.5)
             except Exception as stop_error:
