@@ -9,6 +9,21 @@ on:
       - "main"
 
 jobs:
+  version-consistency:
+    name: "Version Consistency"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v5"
+
+      - name: "Check version consistency"
+        shell: bash
+        run: |
+          # Make the script executable
+          chmod +x scripts/check-version-consistency.sh
+          # Run version consistency check
+          ./scripts/check-version-consistency.sh
+
   ruff:
     name: "Ruff"
     runs-on: "ubuntu-latest"
