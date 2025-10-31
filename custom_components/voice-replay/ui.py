@@ -341,7 +341,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                     announcement_text = "Attenzione"
                 else:
                     announcement_text = "Attention"  # Default to English
-                
+
                 _LOGGER.info("Using verbal announcement for Sonos preparation: %s", announcement_text)
                 return f"{announcement_text}... {text}"
             else:  # announcement_mode == "silence"
