@@ -35,254 +35,296 @@ class VoiceReplayUploadView(HomeAssistantView):
         self.hass = hass
 
     async def post(self, request: web.Request) -> web.Response:
-        """Handle audio upload or text-to-speech and trigger playback."""
+        """Handle POST request for audio upload."""
         try:
             reader = await request.multipart()
-
-            # Read all form fields
             fields = {}
-            while True:
-                field = await reader.next()
-                if field is None:
-                    break
 
-                field_name = field.name
-                if field_name in ["audio"]:
-                    fields[field_name] = await field.read()
+            async for field in reader:
+                if field.name == "audio":
+                    fields["audio"] = await field.read()
                 else:
-                    fields[field_name] = (await field.read()).decode()
+                    fields[field.name] = await field.text()
 
             entity_id = fields.get("entity_id")
-            request_type = fields.get("type", "recording")
+            request_type = fields.get("type", "audio")
 
             if not entity_id:
                 return web.json_response({"error": "Missing entity_id"}, status=400)
 
-            import os
-            import tempfile
-
+            # Handle TTS requests
             if request_type == "tts":
-                # Handle text-to-speech
                 text = fields.get("text")
                 if not text:
-                    return web.json_response(
-                        {"error": "Missing text for TTS"}, status=400
-                    )
+                    return web.json_response({"error": "Missing text for TTS"}, status=400)
+                return await self._handle_tts_request(entity_id, text)
 
-                # Use Home Assistant's TTS service
-                try:
-                    # Call TTS service to speak directly to media player
-                    await self.hass.services.async_call(
-                        "tts",
-                        "speak",
-                        {
-                            "entity_id": entity_id,
-                            "message": text,
-                        },
-                        blocking=True,
-                    )
-
-                    return web.json_response(
-                        {"status": "success", "message": "Playing TTS audio"}
-                    )
-
-                except Exception as tts_error:
-                    _LOGGER.error("TTS service error: %s", tts_error)
-                    return web.json_response(
-                        {"error": f"TTS service failed: {str(tts_error)}"}, status=500
-                    )
-
-            else:
-                # Handle audio recording
-                audio_data = fields.get("audio")
-                if not audio_data:
-                    return web.json_response(
-                        {"error": "Missing audio data"}, status=400
-                    )
-
-                # Get content type from frontend if provided
-                provided_content_type = fields.get("content_type", "audio/webm")
-
-                # Determine file extension and media content type
-                file_extension = ".webm"  # default
-                media_content_type = provided_content_type
-
-                if "mp4" in provided_content_type:
-                    file_extension = ".m4a"
-                    media_content_type = "audio/mp4"
-                elif "mpeg" in provided_content_type or "mp3" in provided_content_type:
-                    file_extension = ".mp3"
-                    media_content_type = "audio/mpeg"
-                elif "wav" in provided_content_type:
-                    file_extension = ".wav"
-                    media_content_type = "audio/wav"
-                elif "webm" in provided_content_type:
-                    # Convert WebM to MP3 for Sonos compatibility
-                    _LOGGER.info(
-                        "WebM audio received - converting to MP3 for Sonos compatibility"
-                    )
-                    file_extension = ".mp3"
-                    # Use 'music' content type for Sonos compatibility
-                    media_content_type = "music"
-                else:
-                    # Default to webm
-                    file_extension = ".webm"
-                    media_content_type = "audio/webm"
-
-                _LOGGER.info(
-                    "Processing audio upload: %s -> %s",
-                    provided_content_type,
-                    file_extension,
-                )
-
-                # Save audio temporarily with correct extension
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=file_extension
-                ) as tmp_file:
-                    tmp_file.write(audio_data)
-                    temp_path = tmp_file.name
-
-                # Convert WebM to MP3 if needed
-                if "webm" in provided_content_type and file_extension == ".mp3":
-                    import os
-                    import shutil
-                    import subprocess
-
-                    # Check if ffmpeg is available
-                    if shutil.which("ffmpeg"):
-                        try:
-                            # Create temporary MP3 file
-                            mp3_temp_path = temp_path.replace(".mp3", "_converted.mp3")
-
-                            # Convert using ffmpeg
-                            subprocess.run(
-                                [
-                                    "ffmpeg",
-                                    "-i",
-                                    temp_path,
-                                    "-y",
-                                    "-acodec",
-                                    "libmp3lame",
-                                    "-b:a",
-                                    "128k",
-                                    mp3_temp_path,
-                                ],
-                                check=True,
-                                capture_output=True,
-                            )
-
-                            # Replace original with converted file
-                            os.remove(temp_path)
-                            os.rename(mp3_temp_path, temp_path)
-
-                            _LOGGER.info("Successfully converted WebM to MP3")
-
-                        except subprocess.CalledProcessError as e:
-                            _LOGGER.error("FFmpeg conversion failed: %s", e)
-                            # Fall back to original file
-                            media_content_type = "audio/webm"
-                        except Exception as e:
-                            _LOGGER.error("Audio conversion error: %s", e)
-                            # Fall back to original file
-                            media_content_type = "audio/webm"
-                    else:
-                        _LOGGER.warning("FFmpeg not found - cannot convert WebM to MP3")
-                        # Fall back to original content type
-                        media_content_type = "audio/webm"
-
-                # Create a URL that Home Assistant can serve
-                media_url = f"/api/{DOMAIN}/media/{os.path.basename(temp_path)}"
-
-                # Store the file path for serving
-                self.hass.data.setdefault(DOMAIN, {})
-                self.hass.data[DOMAIN][os.path.basename(temp_path)] = temp_path
-
-                # Play media with the final content type
-                final_content_type = media_content_type
-                _LOGGER.info(
-                    "Playing %s on %s with content type %s",
-                    file_extension,
-                    entity_id,
-                    final_content_type,
-                )
-
-                # Try to play the media
-                try:
-                    await self.hass.services.async_call(
-                        "media_player",
-                        "play_media",
-                        {
-                            "entity_id": entity_id,
-                            "media_content_id": f"http://localhost:8123{media_url}",
-                            "media_content_type": final_content_type,
-                        },
-                        blocking=True,
-                    )
-                except Exception as play_error:
-                    # If MP3 fails on Sonos, try alternative content types
-                    if (
-                        "does not support media content type" in str(play_error)
-                        and file_extension == ".mp3"
-                    ):
-                        _LOGGER.warning(
-                            "Initial content type %s failed: %s",
-                            final_content_type,
-                            play_error,
-                        )
-
-                        # Try alternative content types for MP3
-                        alternative_types = [
-                            "music",
-                            "audio/mpeg",
-                            "audio/x-mp3",
-                            "application/octet-stream",
-                        ]
-
-                        for alt_type in alternative_types:
-                            if alt_type == final_content_type:
-                                continue  # Skip the one we already tried
-
-                            _LOGGER.info(
-                                "Trying alternative content type: %s",
-                                alt_type,
-                            )
-                            try:
-                                await self.hass.services.async_call(
-                                    "media_player",
-                                    "play_media",
-                                    {
-                                        "entity_id": entity_id,
-                                        "media_content_id": f"http://localhost:8123{media_url}",
-                                        "media_content_type": alt_type,
-                                    },
-                                    blocking=True,
-                                )
-                                _LOGGER.info(
-                                    "Successfully played with content type: %s",
-                                    alt_type,
-                                )
-                                break
-                            except Exception as alt_error:
-                                _LOGGER.warning(
-                                    "Content type %s also failed: %s",
-                                    alt_type,
-                                    alt_error,
-                                )
-                                continue
-                        else:
-                            # All content types failed, re-raise the original error
-                            raise play_error
-                    else:
-                        # Not a content type error or not an MP3, re-raise
-                        raise play_error
-
-                return web.json_response(
-                    {"status": "success", "message": "Playing audio"}
-                )
+            # Handle audio recording
+            return await self._handle_audio_recording(entity_id, fields)
 
         except Exception as e:
             _LOGGER.error("Error handling upload request: %s", e)
             return web.json_response({"error": str(e)}, status=500)
+
+    async def _handle_tts_request(self, entity_id: str, text: str) -> web.Response:
+        """Handle text-to-speech request."""
+        try:
+            await self.hass.services.async_call(
+                "tts",
+                "speak",
+                {
+                    "entity_id": entity_id,
+                    "message": text,
+                },
+                blocking=True,
+            )
+            return web.json_response(
+                {"status": "success", "message": "Playing TTS audio"}
+            )
+        except Exception as tts_error:
+            _LOGGER.error("TTS service error: %s", tts_error)
+            return web.json_response(
+                {"error": f"TTS service failed: {str(tts_error)}"}, status=500
+            )
+
+    async def _handle_audio_recording(self, entity_id: str, fields: dict) -> web.Response:
+        """Handle audio recording upload and playback."""
+        import os
+        import tempfile
+
+        audio_data = fields.get("audio")
+        if not audio_data:
+            return web.json_response({"error": "Missing audio data"}, status=400)
+
+        # Get content type from frontend
+        provided_content_type = fields.get("content_type", "audio/webm")
+
+        # Determine file format
+        file_extension, media_content_type = self._determine_file_format(provided_content_type)
+
+        _LOGGER.info("Processing audio upload: %s -> %s", provided_content_type, file_extension)
+
+        # Save audio temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+            tmp_file.write(audio_data)
+            temp_path = tmp_file.name
+
+        # Convert WebM to MP3 if needed
+        final_content_type = await self._convert_webm_to_mp3(temp_path, provided_content_type, file_extension)
+
+        # Create a URL for serving
+        media_url = f"/api/{DOMAIN}/media/{os.path.basename(temp_path)}"
+        self.hass.data.setdefault(DOMAIN, {})
+        self.hass.data[DOMAIN][os.path.basename(temp_path)] = temp_path
+
+        # Schedule cleanup
+        await self._schedule_file_cleanup(temp_path)
+
+        # Play the audio
+        await self._play_audio(entity_id, media_url, final_content_type, temp_path)
+
+        return web.json_response({"status": "success", "message": "Playing audio"})
+
+    def _determine_file_format(self, provided_content_type: str) -> tuple[str, str]:
+        """Determine file extension and media content type."""
+        if "mp4" in provided_content_type:
+            return ".m4a", "audio/mp4"
+        elif "mpeg" in provided_content_type or "mp3" in provided_content_type:
+            return ".mp3", "audio/mpeg"
+        elif "wav" in provided_content_type:
+            return ".wav", "audio/wav"
+        elif "webm" in provided_content_type:
+            _LOGGER.info("WebM audio received - converting to MP3 for Sonos compatibility")
+            return ".mp3", "audio/mpeg"
+        else:
+            return ".webm", "audio/webm"
+
+    async def _convert_webm_to_mp3(self, temp_path: str, provided_content_type: str, file_extension: str) -> str:
+        """Convert WebM to MP3 if needed and return final content type."""
+        if "webm" in provided_content_type and file_extension == ".mp3":
+            import os
+            import shutil
+            import subprocess
+
+            if shutil.which("ffmpeg"):
+                try:
+                    mp3_temp_path = temp_path.replace(".mp3", "_converted.mp3")
+                    subprocess.run(
+                        [
+                            "ffmpeg", "-i", temp_path, "-y",
+                            "-acodec", "libmp3lame", "-b:a", "128k",
+                            mp3_temp_path,
+                        ],
+                        check=True,
+                        capture_output=True,
+                    )
+                    os.remove(temp_path)
+                    os.rename(mp3_temp_path, temp_path)
+                    _LOGGER.info("Successfully converted WebM to MP3")
+                    return "audio/mpeg"
+                except (subprocess.CalledProcessError, Exception) as e:
+                    _LOGGER.error("FFmpeg conversion failed: %s", e)
+                    return "audio/webm"
+            else:
+                _LOGGER.warning("FFmpeg not found - cannot convert WebM to MP3")
+                return "audio/webm"
+
+        return provided_content_type
+
+    async def _schedule_file_cleanup(self, temp_path: str) -> None:
+        """Schedule cleanup of temporary files after 10 minutes."""
+        import asyncio
+        import os
+
+        async def cleanup_temp_file():
+            await asyncio.sleep(600)  # 10 minutes
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                filename = os.path.basename(temp_path)
+                if filename in self.hass.data.get(DOMAIN, {}):
+                    del self.hass.data[DOMAIN][filename]
+                _LOGGER.debug("Cleaned up temporary file: %s", filename)
+            except Exception as cleanup_error:
+                _LOGGER.warning("Could not cleanup temporary file: %s", cleanup_error)
+
+        self.hass.async_create_task(cleanup_temp_file())
+
+    async def _play_audio(self, entity_id: str, media_url: str, final_content_type: str, temp_path: str) -> None:
+        """Play audio on the specified media player."""
+        external_url = self.hass.config.external_url or "http://localhost:8123"
+        full_media_url = f"{external_url}{media_url}"
+
+        _LOGGER.info("Playing audio on %s with content type %s", entity_id, final_content_type)
+
+        # Check if this is a Sonos speaker
+        is_sonos = any(keyword in entity_id.lower() for keyword in ["sonos", "play:1", "play:3", "play:5"])
+
+        if is_sonos:
+            await self._handle_sonos_playback(entity_id, full_media_url, temp_path)
+        else:
+            # For non-Sonos players, use standard approach
+            await self.hass.services.async_call(
+                "media_player",
+                "play_media",
+                {
+                    "entity_id": entity_id,
+                    "media_content_id": full_media_url,
+                    "media_content_type": final_content_type,
+                },
+                blocking=True,
+            )
+
+    async def _handle_sonos_playback(self, entity_id: str, full_media_url: str, temp_path: str) -> None:
+        """Handle Sonos-specific playback with snapshot/restore."""
+        # Create snapshot
+        await self._create_sonos_snapshot(entity_id)
+
+        # Play the audio
+        success = await self._play_on_sonos(entity_id, full_media_url)
+        if not success:
+            raise Exception("All Sonos content types failed")
+
+        # Schedule restoration
+        await self._schedule_sonos_restore(entity_id, temp_path)
+
+    async def _create_sonos_snapshot(self, entity_id: str) -> None:
+        """Create Sonos snapshot with fallback to stop."""
+        import asyncio
+
+        try:
+            _LOGGER.info("Creating Sonos snapshot before playing voice message")
+            await self.hass.services.async_call(
+                "sonos", "snapshot", {"entity_id": entity_id}, blocking=True,
+            )
+            await asyncio.sleep(0.2)
+        except Exception as snapshot_error:
+            _LOGGER.warning("Could not create Sonos snapshot: %s", snapshot_error)
+            try:
+                _LOGGER.debug("Falling back to simple stop for Sonos")
+                await self.hass.services.async_call(
+                    "media_player", "media_stop", {"entity_id": entity_id}, blocking=True,
+                )
+                await asyncio.sleep(0.5)
+            except Exception as stop_error:
+                _LOGGER.debug("Could not stop Sonos player: %s", stop_error)
+
+    async def _play_on_sonos(self, entity_id: str, full_media_url: str) -> bool:
+        """Try to play on Sonos with different content types."""
+        sonos_content_types = ["audio/mpeg", "audio/mp3", "audio/x-mpeg"]
+
+        for sonos_type in sonos_content_types:
+            try:
+                _LOGGER.info("Trying Sonos URL streaming with content type: %s", sonos_type)
+                await self.hass.services.async_call(
+                    "media_player",
+                    "play_media",
+                    {
+                        "entity_id": entity_id,
+                        "media_content_id": full_media_url,
+                        "media_content_type": sonos_type,
+                    },
+                    blocking=True,
+                )
+                _LOGGER.info("Successfully started Sonos playback with: %s", sonos_type)
+                return True
+            except Exception as sonos_error:
+                _LOGGER.warning("Sonos content type %s failed: %s", sonos_type, sonos_error)
+                continue
+
+        return False
+
+    async def _schedule_sonos_restore(self, entity_id: str, temp_path: str) -> None:
+        """Schedule Sonos state restoration based on audio duration."""
+        import asyncio
+        import os
+        import subprocess
+
+        try:
+            temp_file_path = self.hass.data[DOMAIN][os.path.basename(temp_path)]
+            if os.path.exists(temp_file_path):
+                try:
+                    result = subprocess.run([
+                        "ffprobe", "-v", "quiet", "-show_entries",
+                        "format=duration", "-of", "csv=p=0", temp_file_path
+                    ], capture_output=True, text=True, check=True)
+
+                    duration = float(result.stdout.strip())
+                    restore_delay = max(duration + 1.0, 3.0)
+                    _LOGGER.info("Scheduling Sonos restore in %.1f seconds", restore_delay)
+
+                    async def restore_sonos():
+                        await asyncio.sleep(restore_delay)
+                        try:
+                            await self.hass.services.async_call(
+                                "sonos", "restore", {"entity_id": entity_id}, blocking=True,
+                            )
+                            _LOGGER.info("Sonos state restored successfully")
+                        except Exception as restore_error:
+                            _LOGGER.warning("Could not restore Sonos state: %s", restore_error)
+
+                    self.hass.async_create_task(restore_sonos())
+                except subprocess.CalledProcessError:
+                    _LOGGER.warning("Could not determine audio duration, using fixed restore delay")
+                    await self._schedule_fallback_restore(entity_id)
+        except Exception as schedule_error:
+            _LOGGER.warning("Could not schedule Sonos restore: %s", schedule_error)
+
+    async def _schedule_fallback_restore(self, entity_id: str) -> None:
+        """Schedule Sonos restore with fixed delay as fallback."""
+        import asyncio
+
+        async def restore_sonos_fallback():
+            await asyncio.sleep(5.0)
+            try:
+                await self.hass.services.async_call(
+                    "sonos", "restore", {"entity_id": entity_id}, blocking=True,
+                )
+                _LOGGER.info("Sonos state restored (fallback timing)")
+            except Exception as restore_error:
+                _LOGGER.warning("Could not restore Sonos state: %s", restore_error)
+
+        self.hass.async_create_task(restore_sonos_fallback())
 
 
 class VoiceReplayMediaPlayersView(HomeAssistantView):
@@ -324,11 +366,11 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
 
 
 class VoiceReplayMediaView(HomeAssistantView):
-    """Serve temporary audio files."""
+    """Serve temporary audio files without authentication for media players."""
 
     url = f"{MEDIA_URL}/{{filename}}"
     name = MEDIA_NAME
-    requires_auth = True
+    requires_auth = False  # Allow unauthenticated access for media players
 
     def __init__(self, hass: HomeAssistant) -> None:
         super().__init__()
