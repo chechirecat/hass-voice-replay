@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Cross-platform pre-commit hook to check version consistency
+# This hook runs before each commit and prevents commits if versions are inconsistent
+# Works on both Unix-like systems (Linux, macOS) and Windows (Git Bash, WSL)
+
+echo "🔍 Checking version consistency before commit..."
+
+# Detect the operating system and shell environment
+detect_environment() {
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+        echo "windows"
+    elif [[ -n "$WSL_DISTRO_NAME" ]]; then
+        echo "wsl"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo "linux"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    else
+        echo "unix"
+    fi
+}
+
+# Run version consistency check based on environment
+run_version_check() {
+    local env=$(detect_environment)
+    local script_path="scripts/check-version-consistency.sh"
+    
+    case $env in
+        "windows")
+            # Running in Git Bash on Windows
+            if [ -f "$script_path" ]; then
+                bash "$script_path"
+                return $?
+            fi
+            ;;
+        "wsl"|"linux"|"macos"|"unix")
+            # Running on Unix-like system
+            if [ -f "$script_path" ]; then
+                bash "$script_path"
+                return $?
+            fi
+            ;;
+        *)
+            echo "⚠️  Unknown environment: $env (OSTYPE: $OSTYPE)"
+            if [ -f "$script_path" ]; then
+                bash "$script_path"
+                return $?
+            fi
+            ;;
+    esac
+    
+    echo "❌ Version consistency script not found at $script_path"
+    return 1
+}
+
+# Execute the version check
+if run_version_check; then
+    echo "✅ Version consistency check passed!"
+else
+    echo ""
+    echo "❌ Commit rejected: Version inconsistency detected!"
+    echo "Please fix the version mismatches before committing."
+    echo ""
+    echo "To check manually:"
+    echo "  • Unix/Linux/macOS: bash scripts/check-version-consistency.sh"
+    echo "  • Windows Git Bash: bash scripts/check-version-consistency.sh"
+    echo "  • Windows PowerShell: (not yet supported for manual check)"
+    echo ""
+    echo "To bypass this hook temporarily: git commit --no-verify"
+    exit 1
+fi
+
+echo ""
