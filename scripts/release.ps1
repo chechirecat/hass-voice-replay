@@ -89,31 +89,32 @@ function Test-VersionConsistency {
     $manifestVersion = Get-ManifestVersion
     $pyprojectVersion = Get-PyProjectVersion
     $testjsVersion = Get-TestJsVersion
-    
+
     Write-Info "Current versions:"
     Write-Host "  manifest.json: $manifestVersion"
     Write-Host "  pyproject.toml: $pyprojectVersion"
     Write-Host "  test.js: $testjsVersion"
-    
+
     if (($manifestVersion -ne $pyprojectVersion) -or 
         ($manifestVersion -ne $testjsVersion) -or 
         ($pyprojectVersion -ne $testjsVersion)) {
         Write-ErrorMessage "Version mismatch detected! Please fix version consistency first."
         exit 1
     }
-    
+
     return $manifestVersion
 }
 
 function Test-RemoteTag {
     param([string]$Version)
     $tag = "v$Version"
-    
+
     # Fetch latest tags from remote
     git fetch --tags 2>$null
-    
-    $remoteTags = git ls-remote --tags origin 2>$null
-    return $remoteTags -match "refs/tags/$tag`$"
+
+    # Check if tag exists locally after fetch
+    $localTags = git tag -l
+    return $localTags -contains $tag
 }
 
 function Step-Version {
@@ -122,7 +123,7 @@ function Step-Version {
     $major = [int]$versionParts[0]
     $minor = [int]$versionParts[1]
     $patch = [int]$versionParts[2]
-    
+
     switch ($IncrementType) {
         "major" {
             $major++
@@ -141,14 +142,14 @@ function Step-Version {
             exit 1
         }
     }
-    
+
     return "$major.$minor.$patch"
 }
 
 function Update-ManifestVersion {
     param([string]$NewVersion)
     Write-Info "Updating manifest.json to version $NewVersion"
-    
+
     $content = Get-Content $ManifestFile -Raw
     $pattern = '"version":\s*"[^"]*"'
     $replacement = '"version": "' + $NewVersion + '"'
@@ -159,7 +160,7 @@ function Update-ManifestVersion {
 function Update-PyProjectVersion {
     param([string]$NewVersion)
     Write-Info "Updating pyproject.toml to version $NewVersion"
-    
+
     $content = Get-Content $PyProjectFile -Raw
     $pattern = 'version\s*=\s*"[^"]*"'
     $replacement = 'version = "' + $NewVersion + '"'
@@ -170,7 +171,7 @@ function Update-PyProjectVersion {
 function Update-TestJsVersion {
     param([string]$NewVersion)
     Write-Info "Updating test.js to version $NewVersion"
-    
+
     $content = Get-Content $TestJsFile -Raw
     $pattern = 'Version\s+\d+\.\d+\.\d+'
     $replacement = "Version $NewVersion"
@@ -180,11 +181,11 @@ function Update-TestJsVersion {
 
 function Update-AllVersions {
     param([string]$NewVersion)
-    
+
     Update-ManifestVersion $NewVersion
     Update-PyProjectVersion $NewVersion
     Update-TestJsVersion $NewVersion
-    
+
     Write-Success "All version files updated to $NewVersion"
 }
 
@@ -233,7 +234,7 @@ Write-Success "All versions are consistent: $currentVersion"
 # Check if current version already exists as tag
 if (Test-RemoteTag $currentVersion) {
     Write-Warning "Version $currentVersion already exists as remote tag!"
-    
+
     Write-Host ""
     Write-Host "Options:"
     Write-Host "1) Auto-increment patch version - recommended"
@@ -241,9 +242,9 @@ if (Test-RemoteTag $currentVersion) {
     Write-Host "3) Auto-increment major version"
     Write-Host "4) Manually specify new version"
     Write-Host "5) Exit"
-    
+
     $choice = Read-Host "Choose option (1-5)"
-    
+
     switch ($choice) {
         "1" {
             $newVersion = Step-Version $currentVersion "patch"
@@ -271,7 +272,7 @@ if (Test-RemoteTag $currentVersion) {
             exit 1
         }
     }
-    
+
     # Check if new version already exists
     if (Test-RemoteTag $newVersion) {
         Write-ErrorMessage "Version $newVersion also already exists as remote tag!"
@@ -297,12 +298,12 @@ if ($confirm -notmatch '^[Yy]$') {
 if ($newVersion -ne $currentVersion) {
     Write-Info "Updating version files..."
     Update-AllVersions $newVersion
-    
+
     # Commit version changes
     git add $ManifestFile $PyProjectFile $TestJsFile
     git commit -m "chore: bump version to $newVersion"
     Write-Success "Version changes committed"
-    
+
     # Push changes
     Write-Info "Pushing version changes to remote..."
     git push origin main

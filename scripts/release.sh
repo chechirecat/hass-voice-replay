@@ -83,19 +83,19 @@ check_version_consistency() {
     local manifest_version=$(get_manifest_version)
     local pyproject_version=$(get_pyproject_version)
     local testjs_version=$(get_testjs_version)
-    
+
     log_info "Current versions:"
     echo "  📄 manifest.json: $manifest_version"
     echo "  📄 pyproject.toml: $pyproject_version"
     echo "  📄 test.js: $testjs_version"
-    
+
     if [[ "$manifest_version" != "$pyproject_version" ]] || 
        [[ "$manifest_version" != "$testjs_version" ]] || 
        [[ "$pyproject_version" != "$testjs_version" ]]; then
         log_error "Version mismatch detected! Please fix version consistency first."
         exit 1
     fi
-    
+
     echo "$manifest_version"
 }
 
@@ -103,11 +103,12 @@ check_version_consistency() {
 check_remote_tag() {
     local version="$1"
     local tag="v$version"
-    
+
     # Fetch latest tags from remote
     git fetch --tags > /dev/null 2>&1
-    
-    if git ls-remote --tags origin | grep -q "refs/tags/$tag$"; then
+
+    # Check if tag exists locally after fetch
+    if git tag -l | grep -q "^$tag$"; then
         return 0  # Tag exists
     else
         return 1  # Tag doesn't exist
@@ -118,14 +119,14 @@ check_remote_tag() {
 increment_version() {
     local version="$1"
     local increment_type="$2"
-    
+
     # Parse version (assuming semantic versioning: major.minor.patch)
     local IFS='.'
     read -ra VERSION_PARTS <<< "$version"
     local major="${VERSION_PARTS[0]}"
     local minor="${VERSION_PARTS[1]}"
     local patch="${VERSION_PARTS[2]}"
-    
+
     case "$increment_type" in
         "major")
             major=$((major + 1))
@@ -144,7 +145,7 @@ increment_version() {
             exit 1
             ;;
     esac
-    
+
     echo "$major.$minor.$patch"
 }
 
@@ -152,7 +153,7 @@ increment_version() {
 update_manifest_version() {
     local new_version="$1"
     log_info "Updating manifest.json to version $new_version"
-    
+
     # Use sed to replace the version
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS sed
@@ -167,7 +168,7 @@ update_manifest_version() {
 update_pyproject_version() {
     local new_version="$1"
     log_info "Updating pyproject.toml to version $new_version"
-    
+
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS sed
         sed -i '' "s/version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
@@ -181,7 +182,7 @@ update_pyproject_version() {
 update_testjs_version() {
     local new_version="$1"
     log_info "Updating test.js to version $new_version"
-    
+
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS sed
         sed -i '' "s/Version [0-9.][0-9.]*/Version $new_version/" "$TESTJS_FILE"
@@ -194,11 +195,11 @@ update_testjs_version() {
 # Update all version files
 update_all_versions() {
     local new_version="$1"
-    
+
     update_manifest_version "$new_version"
     update_pyproject_version "$new_version"
     update_testjs_version "$new_version"
-    
+
     log_success "All version files updated to $new_version"
 }
 
@@ -206,20 +207,20 @@ update_all_versions() {
 main() {
     echo "🚀 Automated Release Script"
     echo "=========================="
-    
+
     # Pre-flight checks
     check_git_repo
     check_working_directory
-    
+
     # Check current version consistency
     log_info "Checking current version consistency..."
     current_version=$(check_version_consistency)
     log_success "All versions are consistent: $current_version"
-    
+
     # Check if current version already exists as tag
     if check_remote_tag "$current_version"; then
         log_warning "Version $current_version already exists as remote tag!"
-        
+
         echo ""
         echo "Options:"
         echo "1) Auto-increment patch version (recommended)"
@@ -227,9 +228,9 @@ main() {
         echo "3) Auto-increment major version"
         echo "4) Manually specify new version"
         echo "5) Exit"
-        
+
         read -p "Choose option (1-5): " choice
-        
+
         case "$choice" in
             1)
                 new_version=$(increment_version "$current_version" "patch")
@@ -257,20 +258,20 @@ main() {
                 exit 1
                 ;;
         esac
-        
+
         # Check if new version already exists
         if check_remote_tag "$new_version"; then
             log_error "Version $new_version also already exists as remote tag!"
             exit 1
         fi
-        
+
     else
         log_info "Current version $current_version is not yet tagged. Using it for release."
         new_version="$current_version"
     fi
-    
+
     log_info "Releasing version: $new_version"
-    
+
     # Confirmation
     echo ""
     read -p "Proceed with release $new_version? (y/N): " confirm
@@ -278,33 +279,33 @@ main() {
         log_info "Release cancelled."
         exit 0
     fi
-    
+
     # Update versions if needed
     if [[ "$new_version" != "$current_version" ]]; then
         log_info "Updating version files..."
         update_all_versions "$new_version"
-        
+
         # Commit version changes
         git add "$MANIFEST_FILE" "$PYPROJECT_FILE" "$TESTJS_FILE"
         git commit -m "chore: bump version to $new_version"
         log_success "Version changes committed"
-        
+
         # Push changes
         log_info "Pushing version changes to remote..."
         git push origin main
         log_success "Version changes pushed to remote"
     fi
-    
+
     # Create and push tag
     local tag="v$new_version"
     log_info "Creating tag $tag..."
     git tag "$tag"
     log_success "Tag $tag created"
-    
+
     log_info "Pushing tag to remote..."
     git push origin "$tag"
     log_success "Tag $tag pushed to remote"
-    
+
     echo ""
     log_success "🎉 Release $new_version completed successfully!"
     log_info "The release workflow should now be triggered automatically."
