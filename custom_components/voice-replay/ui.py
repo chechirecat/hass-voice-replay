@@ -69,25 +69,314 @@ class VoiceReplayUploadView(HomeAssistantView):
             return web.json_response({"error": str(e)}, status=500)
 
     async def _handle_tts_request(self, entity_id: str, text: str) -> web.Response:
-        """Handle text-to-speech request."""
+        """Handle text-to-speech request using configured TTS settings."""
         try:
-            await self.hass.services.async_call(
-                "tts",
-                "speak",
-                {
-                    "entity_id": entity_id,
-                    "message": text,
-                },
-                blocking=True,
+            # Get TTS configuration from integration data
+            tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
+            _LOGGER.info("Retrieved TTS config from hass.data: %s", tts_config)
+
+            # Get configured settings
+            configured_engine = tts_config.get("engine", "auto")
+            configured_language = tts_config.get("language", "de_DE")
+            configured_voice = tts_config.get("voice")
+
+            _LOGGER.info("TTS request - Engine: %s, Language: %s, Voice: %s", configured_engine, configured_language, configured_voice)
+
+            # Determine which TTS engine to use
+            if configured_engine == "auto":
+                tts_entity = await self._get_available_tts_engine()
+                _LOGGER.info("Auto-detected TTS engine: %s", tts_entity)
+            else:
+                # Use configured engine if it exists and is available
+                state = self.hass.states.get(configured_engine)
+                if state and state.state != "unavailable":
+                    tts_entity = configured_engine
+                    _LOGGER.info("Using configured TTS engine: %s", tts_entity)
+                else:
+                    _LOGGER.warning(
+                        "Configured TTS engine %s not available, falling back to auto-detect",
+                        configured_engine
+                    )
+                    tts_entity = await self._get_available_tts_engine()
+                    _LOGGER.info("Fallback TTS engine: %s", tts_entity)
+
+            if not tts_entity:
+                return web.json_response({"error": "No TTS engine available"}, status=400)
+
+            _LOGGER.info(
+                "Using TTS engine: %s for entity: %s (lang=%s, voice=%s)",
+                tts_entity,
+                entity_id,
+                configured_language,
+                configured_voice,
             )
-            return web.json_response(
-                {"status": "success", "message": "Playing TTS audio"}
-            )
+
+            # Prepare options dict for voice selection
+            options: dict | None = None
+            if configured_voice:
+                # Validate requested voice against engine voices, if available
+                available_voices = await self._get_engine_voices(tts_entity)
+                if available_voices and configured_voice not in available_voices:
+                    _LOGGER.warning(
+                        "Configured voice '%s' not available for engine %s. Available: %s. Using engine default.",
+                        configured_voice,
+                        tts_entity,
+                        available_voices,
+                    )
+                else:
+                    options = {"voice": configured_voice}
+
+            # Normalize language for the engine
+            normalized_language = configured_language
+            if configured_language:
+                normalized_language = await self._normalize_language_for_engine(tts_entity, configured_language)
+                _LOGGER.info("Language normalized: %s -> %s for engine %s", configured_language, normalized_language, tts_entity)
+            else:
+                _LOGGER.warning("No language configured - TTS will use engine default")
+
+            # For Sonos speakers, prepare the message with silence/announcement
+            is_sonos = any(keyword in entity_id.lower() for keyword in ["sonos", "play:1", "play:3", "play:5"])
+            if is_sonos:
+                _LOGGER.info("Detected Sonos speaker, preparing message with silence...")
+                # Create snapshot first
+                try:
+                    await self.hass.services.async_call(
+                        "sonos", "snapshot", {"entity_id": entity_id}, blocking=True
+                    )
+                except Exception as sonos_prep_error:
+                    _LOGGER.warning("Could not create Sonos snapshot: %s", sonos_prep_error)
+
+                # Add silence or announcement to the beginning of the text
+                text = await self._prepare_sonos_message(text, tts_entity)
+
+            # Call the TTS entity service
+            payload = {
+                "entity_id": tts_entity,  # The TTS engine entity
+                "media_player_entity_id": entity_id,  # The media player to play on
+                "message": text,
+                "cache": True,
+            }
+
+            # Force German language for debugging - remove this later
+            if normalized_language:
+                payload["language"] = normalized_language
+                _LOGGER.info("Using normalized language: %s", normalized_language)
+            else:
+                # Fallback to force German if no language detected
+                payload["language"] = "de_DE"
+                _LOGGER.warning("No language configured, forcing German (de_DE)")
+
+            if options:
+                payload["options"] = options
+
+            _LOGGER.info("TTS payload: %s", payload)
+
+            # Log the actual service call for debugging
+            _LOGGER.info("Calling tts.speak service with payload: %s", payload)
+            await self.hass.services.async_call("tts", "speak", payload, blocking=True)
+            _LOGGER.info("TTS service call completed successfully")
+
+            # For Sonos, schedule restoration after a delay
+            if is_sonos:
+                async def restore_sonos():
+                    import asyncio
+                    await asyncio.sleep(10.0)  # Wait for TTS to finish
+                    try:
+                        await self.hass.services.async_call(
+                            "sonos", "restore", {"entity_id": entity_id}, blocking=True
+                        )
+                        _LOGGER.info("Sonos state restored after TTS")
+                    except Exception as restore_error:
+                        _LOGGER.warning("Could not restore Sonos state: %s", restore_error)
+
+                self.hass.async_create_task(restore_sonos())
+
+            return web.json_response({"status": "success", "message": f"Playing TTS audio via {tts_entity}"})
+
         except Exception as tts_error:
-            _LOGGER.error("TTS service error: %s", tts_error)
-            return web.json_response(
-                {"error": f"TTS service failed: {str(tts_error)}"}, status=500
+            error_msg = str(tts_error)
+
+            # Provide more specific error messages for common issues
+            if "language" in error_msg.lower():
+                _LOGGER.error("TTS language error for engine %s with language '%s': %s", tts_entity, configured_language, tts_error)
+                return web.json_response({
+                    "error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"
+                }, status=400)
+            elif "voice" in error_msg.lower():
+                _LOGGER.error("TTS voice error for engine %s with voice '%s': %s", tts_entity, configured_voice, tts_error)
+                return web.json_response({
+                    "error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"
+                }, status=400)
+            else:
+                _LOGGER.error("TTS service error: %s", tts_error)
+                return web.json_response({"error": f"TTS service failed: {error_msg}"}, status=500)
+
+    async def _get_available_tts_engine(self) -> str | None:
+        """Find an available TTS engine entity."""
+        # Check for common TTS entities
+        common_tts_engines = [
+            "tts.piper",
+            "tts.google_translate",
+            "tts.amazon_polly",
+            "tts.microsoft",
+            "tts.voicerss",
+            "tts.picotts",
+        ]
+
+        # First try common engines
+        for engine in common_tts_engines:
+            if self.hass.states.get(engine) is not None:
+                _LOGGER.debug("Found TTS engine: %s", engine)
+                return engine
+
+        # Fallback: look for any tts.* entity
+        for state in self.hass.states.async_all():
+            if state.entity_id.startswith("tts.") and state.state != "unavailable":
+                _LOGGER.debug("Found fallback TTS engine: %s", state.entity_id)
+                return state.entity_id
+
+        _LOGGER.warning("No TTS engine found")
+        return None
+
+    async def _get_engine_voices(self, engine_entity_id: str) -> list[str]:
+        """Return a list of available voices for a given TTS engine entity."""
+        try:
+            state = self.hass.states.get(engine_entity_id)
+            if not state:
+                return []
+
+            voices = state.attributes.get("voices") or state.attributes.get("available_voices")
+            if voices and isinstance(voices, (list, tuple)):
+                return list(voices)
+        except Exception as e:
+            _LOGGER.debug("Could not get voices for %s: %s", engine_entity_id, e)
+        return []
+
+    async def _normalize_language_for_engine(self, engine_entity_id: str, language: str) -> str:
+        """Normalize language code for the specific TTS engine."""
+        try:
+            state = self.hass.states.get(engine_entity_id)
+            if not state:
+                _LOGGER.warning("TTS engine state not found: %s", engine_entity_id)
+                return language
+
+            # Get supported languages from the engine
+            supported_langs = state.attributes.get("supported_languages") or state.attributes.get("languages")
+            if not supported_langs:
+                _LOGGER.warning("No supported languages found for engine %s", engine_entity_id)
+                return language
+
+            _LOGGER.info("Engine %s supports languages: %s, requesting: %s", engine_entity_id, supported_langs, language)
+
+            # If the current language is supported, use it as-is
+            if language in supported_langs:
+                _LOGGER.info("Language '%s' is directly supported by %s", language, engine_entity_id)
+                return language
+
+            # Try common format variations
+            language_variations = []
+            if language == "de":
+                language_variations = ["de_DE", "de-DE", "german"]
+            elif language == "en":
+                language_variations = ["en_US", "en-US", "english"]
+            elif language == "fr":
+                language_variations = ["fr_FR", "fr-FR", "french"]
+            elif language == "es":
+                language_variations = ["es_ES", "es-ES", "spanish"]
+            elif language == "it":
+                language_variations = ["it_IT", "it-IT", "italian"]
+            elif language == "de-DE":
+                language_variations = ["de_DE", "de", "german"]
+            elif language == "de_DE":
+                language_variations = ["de-DE", "de", "german"]
+            elif language in ["en-US", "en_US"]:
+                language_variations = ["en_US", "en-US", "en", "english"]
+            elif language in ["en-GB", "en_GB"]:
+                language_variations = ["en_GB", "en-GB", "en", "english"]
+
+            # Check if any variation is supported
+            for variation in language_variations:
+                if variation in supported_langs:
+                    _LOGGER.info("Language mapping: '%s' -> '%s' for engine %s", language, variation, engine_entity_id)
+                    return variation
+
+            # If no variation found, log available languages for debugging
+            _LOGGER.warning(
+                "Language '%s' not found for engine %s. Supported languages: %s. Using original language.",
+                language,
+                engine_entity_id,
+                supported_langs
             )
+            return language
+
+        except Exception as e:
+            _LOGGER.debug("Could not normalize language for %s: %s", engine_entity_id, e)
+            return language
+
+    async def _prepare_sonos_message(self, text: str, tts_entity: str) -> str:
+        """Prepare TTS message for Sonos with silence or announcement."""
+        try:
+            # Get the configured announcement mode
+            tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
+            announcement_mode = tts_config.get("sonos_announcement_mode", "silence")
+
+            _LOGGER.info("Preparing Sonos message with mode: %s", announcement_mode)
+
+            if announcement_mode == "disabled":
+                # No modification needed
+                return text
+            elif announcement_mode == "announcement":
+                # Add a verbal announcement with natural pause
+                # Use language-appropriate announcement text
+                tts_language = tts_config.get("language", "de_DE").lower()
+                if "de" in tts_language:
+                    announcement_text = "Achtung"
+                elif "en" in tts_language:
+                    announcement_text = "Attention"
+                elif "fr" in tts_language:
+                    announcement_text = "Attention"
+                elif "es" in tts_language:
+                    announcement_text = "Atención"
+                elif "it" in tts_language:
+                    announcement_text = "Attenzione"
+                else:
+                    announcement_text = "Attention"  # Default to English
+                
+                _LOGGER.info("Using verbal announcement for Sonos preparation: %s", announcement_text)
+                return f"{announcement_text}... {text}"
+            else:  # announcement_mode == "silence"
+                # Try to use SSML for silence
+                state = self.hass.states.get(tts_entity)
+                if state:
+                    # Check if engine supports SSML (most modern TTS engines do)
+                    supported_options = state.attributes.get("supported_options", [])
+                    supports_ssml = "ssml" in supported_options or "SSML" in str(state.attributes)
+
+                    if supports_ssml or "piper" in tts_entity.lower():
+                        # Use SSML to add 3 seconds of silence before the text
+                        _LOGGER.info("Using SSML silence for Sonos preparation")
+                        return f'<speak><break time="3s"/>{text}</speak>'
+
+                # Fallback to verbal announcement if SSML not supported
+                _LOGGER.info("SSML not supported, falling back to verbal announcement")
+                tts_language = tts_config.get("language", "de_DE").lower()
+                if "de" in tts_language:
+                    announcement_text = "Achtung"
+                elif "en" in tts_language:
+                    announcement_text = "Attention"
+                elif "fr" in tts_language:
+                    announcement_text = "Attention"
+                elif "es" in tts_language:
+                    announcement_text = "Atención"
+                elif "it" in tts_language:
+                    announcement_text = "Attenzione"
+                else:
+                    announcement_text = "Attention"  # Default to English
+                return f"{announcement_text}... {text}"
+
+        except Exception as e:
+            _LOGGER.warning("Could not prepare Sonos message, using original: %s", e)
+            return text
 
     async def _handle_audio_recording(
         self, entity_id: str, fields: dict

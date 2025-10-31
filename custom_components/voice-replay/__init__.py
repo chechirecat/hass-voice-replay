@@ -28,6 +28,15 @@ async def async_setup_entry(hass, entry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN].setdefault(DATA_KEY, {})
 
+    # Store TTS configuration from options
+    tts_config = {
+        "engine": entry.options.get("tts_engine", "auto"),
+        "language": entry.options.get("tts_language", "de_DE"),
+        "voice": entry.options.get("tts_voice"),
+        "sonos_announcement_mode": entry.options.get("sonos_announcement_mode", "silence"),
+    }
+    hass.data[DOMAIN]["tts_config"] = tts_config
+
     # Lazy imports that require Home Assistant runtime
     from . import services as services_mod
     from . import ui as ui_mod
@@ -38,8 +47,25 @@ async def async_setup_entry(hass, entry) -> bool:
     # Register the API views for backend functionality
     ui_mod.register_ui_view(hass)
 
-    _LOGGER.debug("Voice Replay integration set up successfully")
+    # Listen for options updates
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
+
+    _LOGGER.debug("Voice Replay integration set up successfully with TTS config: %s", tts_config)
     return True
+
+
+async def async_update_options(hass, entry) -> None:
+    """Update options when they change."""
+    # Update stored TTS configuration
+    tts_config = {
+        "engine": entry.options.get("tts_engine", "auto"),
+        "language": entry.options.get("tts_language", "de_DE"),
+        "voice": entry.options.get("tts_voice"),
+        "sonos_announcement_mode": entry.options.get("sonos_announcement_mode", "silence"),
+    }
+    hass.data[DOMAIN]["tts_config"] = tts_config
+    hass.data[DOMAIN]["tts_config"] = tts_config
+    _LOGGER.debug("Updated TTS config: %s", tts_config)
 
 
 async def async_unload_entry(hass, entry) -> bool:

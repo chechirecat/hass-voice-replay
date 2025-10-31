@@ -85,6 +85,7 @@ custom_components/voice-replay/
 ├── services.yaml            # Service definitions
 ├── ui.py                    # Web UI and API endpoints
 └── translations/
+    ├── de.json              # german translation
     └── en.json              # English translations
 
 scripts/

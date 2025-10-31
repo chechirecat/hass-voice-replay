@@ -1,4 +1,48 @@
 {
+  "config": {
+    "step": {
+      "user": {
+        "title": "Voice Replay Setup",
+        "description": "Configure Voice Replay integration"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TTS Engine Selection",
+        "description": "Select the Text-to-Speech engine for Voice Replay",
+        "data": {
+          "tts_engine": "TTS Engine"
+        },
+        "data_description": {
+          "tts_engine": "Select the TTS engine to use for voice playback. Choose 'Auto-detect' to automatically find an available engine."
+        }
+      },
+      "language": {
+        "title": "Language Selection",
+        "description": "Choose the language for TTS output (Engine: {engine})",
+        "data": {
+          "tts_language": "Language"
+        },
+        "data_description": {
+          "tts_language": "Select the language for text-to-speech output"
+        }
+      },
+      "voice": {
+        "title": "Voice Selection",
+        "description": "Select voice for Text-to-Speech.\n\nEngine: **{engine}**\nLanguage: **{language}**\nAvailable voices: **{voice_count}**",
+        "data": {
+          "tts_voice": "Voice",
+          "sonos_announcement_mode": "Sonos Speaker Preparation"
+        },
+        "data_description": {
+          "tts_voice": "Choose a specific voice for the selected language, or leave empty for engine default",
+          "sonos_announcement_mode": "How to prepare Sonos speakers before TTS playback to prevent audio cutoff"
+        }
+      }
+    }
+  },
   "services": {
     "replay": {
       "name": "Replay",
