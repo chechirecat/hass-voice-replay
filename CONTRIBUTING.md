@@ -19,6 +19,10 @@ Pull requests are the best way to propose changes to the codebase.
 4. Test your contribution.
 5. Issue that pull request!
 
+**📖 [Development Guide →](docs/DEVELOPMENT.md)** - Complete setup and contribution guidelines
+
+**📖 [Release Process →](docs/RELEASE_AUTOMATION.md)** - Automated release workflow
+
 ## Any contributions you make will be under the MIT Software License
 
 In short, when you submit code changes, your submissions are understood to be under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the maintainers if that's a concern.
