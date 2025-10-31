@@ -74,7 +74,7 @@ get_pyproject_version() {
 # Extract version from test.js
 get_testjs_version() {
     if [[ -f "$TESTJS_FILE" ]]; then
-        grep "Version [0-9]" "$TESTJS_FILE" | sed 's/.*Version \([0-9.]*\).*/\1/'
+        grep "Version " "$TESTJS_FILE" | sed 's/.*Version \([0-9.]*\).*/\1/'
     fi
 }
 
@@ -96,7 +96,12 @@ check_version_consistency() {
         exit 1
     fi
 
-    echo "$manifest_version"
+    return 0
+}
+
+# Get current version (separate from consistency check)
+get_current_version() {
+    get_manifest_version
 }
 
 # Check if version tag exists remotely
@@ -214,10 +219,9 @@ main() {
 
     # Check current version consistency
     log_info "Checking current version consistency..."
-    current_version=$(check_version_consistency)
-    log_success "All versions are consistent: $current_version"
-
-    # Check if current version already exists as tag
+    check_version_consistency
+    current_version=$(get_current_version)
+    log_success "All versions are consistent: $current_version"    # Check if current version already exists as tag
     if check_remote_tag "$current_version"; then
         log_warning "Version $current_version already exists as remote tag!"
 
