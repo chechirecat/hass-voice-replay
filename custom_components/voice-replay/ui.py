@@ -56,7 +56,9 @@ class VoiceReplayUploadView(HomeAssistantView):
             if request_type == "tts":
                 text = fields.get("text")
                 if not text:
-                    return web.json_response({"error": "Missing text for TTS"}, status=400)
+                    return web.json_response(
+                        {"error": "Missing text for TTS"}, status=400
+                    )
                 return await self._handle_tts_request(entity_id, text)
 
             # Handle audio recording
@@ -100,17 +102,25 @@ class VoiceReplayUploadView(HomeAssistantView):
         provided_content_type = fields.get("content_type", "audio/webm")
 
         # Determine file format
-        file_extension, media_content_type = self._determine_file_format(provided_content_type)
+        file_extension, media_content_type = self._determine_file_format(
+            provided_content_type
+        )
 
-        _LOGGER.info("Processing audio upload: %s -> %s", provided_content_type, file_extension)
+        _LOGGER.info(
+            "Processing audio upload: %s -> %s", provided_content_type, file_extension
+        )
 
         # Save audio temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=file_extension
+        ) as tmp_file:
             tmp_file.write(audio_data)
             temp_path = tmp_file.name
 
         # Convert WebM to MP3 if needed
-        final_content_type = await self._convert_webm_to_mp3(temp_path, provided_content_type, file_extension)
+        final_content_type = await self._convert_webm_to_mp3(
+            temp_path, provided_content_type, file_extension
+        )
 
         # Create a URL for serving
         media_url = f"/api/{DOMAIN}/media/{os.path.basename(temp_path)}"
@@ -134,12 +144,16 @@ class VoiceReplayUploadView(HomeAssistantView):
         elif "wav" in provided_content_type:
             return ".wav", "audio/wav"
         elif "webm" in provided_content_type:
-            _LOGGER.info("WebM audio received - converting to MP3 for Sonos compatibility")
+            _LOGGER.info(
+                "WebM audio received - converting to MP3 for Sonos compatibility"
+            )
             return ".mp3", "audio/mpeg"
         else:
             return ".webm", "audio/webm"
 
-    async def _convert_webm_to_mp3(self, temp_path: str, provided_content_type: str, file_extension: str) -> str:
+    async def _convert_webm_to_mp3(
+            self, temp_path: str, provided_content_type: str, file_extension: str
+    ) -> str:
         """Convert WebM to MP3 if needed and return final content type."""
         if "webm" in provided_content_type and file_extension == ".mp3":
             import os
@@ -151,8 +165,14 @@ class VoiceReplayUploadView(HomeAssistantView):
                     mp3_temp_path = temp_path.replace(".mp3", "_converted.mp3")
                     subprocess.run(
                         [
-                            "ffmpeg", "-i", temp_path, "-y",
-                            "-acodec", "libmp3lame", "-b:a", "128k",
+                            "ffmpeg",
+                            "-i",
+                            temp_path,
+                            "-y",
+                            "-acodec",
+                            "libmp3lame",
+                            "-b:a",
+                            "128k",
                             mp3_temp_path,
                         ],
                         check=True,
@@ -190,15 +210,22 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         self.hass.async_create_task(cleanup_temp_file())
 
-    async def _play_audio(self, entity_id: str, media_url: str, final_content_type: str, temp_path: str) -> None:
+    async def _play_audio(
+            self, entity_id: str, media_url: str, final_content_type: str, temp_path: str
+    ) -> None:
         """Play audio on the specified media player."""
         external_url = self.hass.config.external_url or "http://localhost:8123"
         full_media_url = f"{external_url}{media_url}"
 
-        _LOGGER.info("Playing audio on %s with content type %s", entity_id, final_content_type)
+        _LOGGER.info(
+            "Playing audio on %s with content type %s", entity_id, final_content_type
+        )
 
         # Check if this is a Sonos speaker
-        is_sonos = any(keyword in entity_id.lower() for keyword in ["sonos", "play:1", "play:3", "play:5"])
+        is_sonos = any(
+            keyword in entity_id.lower()
+            for keyword in ["sonos", "play:1", "play:3", "play:5"]
+        )
 
         if is_sonos:
             await self._handle_sonos_playback(entity_id, full_media_url, temp_path)
@@ -215,7 +242,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 blocking=True,
             )
 
-    async def _handle_sonos_playback(self, entity_id: str, full_media_url: str, temp_path: str) -> None:
+    async def _handle_sonos_playback(
+        self, entity_id: str, full_media_url: str, temp_path: str
+    ) -> None:
         """Handle Sonos-specific playback with snapshot/restore."""
         # Create snapshot
         await self._create_sonos_snapshot(entity_id)
@@ -235,7 +264,10 @@ class VoiceReplayUploadView(HomeAssistantView):
         try:
             _LOGGER.info("Creating Sonos snapshot before playing voice message")
             await self.hass.services.async_call(
-                "sonos", "snapshot", {"entity_id": entity_id}, blocking=True,
+                "sonos",
+                "snapshot",
+                {"entity_id": entity_id},
+                blocking=True,
             )
             await asyncio.sleep(0.2)
         except Exception as snapshot_error:
@@ -255,7 +287,9 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         for sonos_type in sonos_content_types:
             try:
-                _LOGGER.info("Trying Sonos URL streaming with content type: %s", sonos_type)
+                _LOGGER.info(
+                    "Trying Sonos URL streaming with content type: %s", sonos_type
+                )
                 await self.hass.services.async_call(
                     "media_player",
                     "play_media",
@@ -269,7 +303,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 _LOGGER.info("Successfully started Sonos playback with: %s", sonos_type)
                 return True
             except Exception as sonos_error:
-                _LOGGER.warning("Sonos content type %s failed: %s", sonos_type, sonos_error)
+                _LOGGER.warning(
+                    "Sonos content type %s failed: %s", sonos_type, sonos_error
+                )
                 continue
 
         return False
@@ -284,28 +320,48 @@ class VoiceReplayUploadView(HomeAssistantView):
             temp_file_path = self.hass.data[DOMAIN][os.path.basename(temp_path)]
             if os.path.exists(temp_file_path):
                 try:
-                    result = subprocess.run([
-                        "ffprobe", "-v", "quiet", "-show_entries",
-                        "format=duration", "-of", "csv=p=0", temp_file_path
-                    ], capture_output=True, text=True, check=True)
+                    result = subprocess.run(
+                        [
+                            "ffprobe",
+                            "-v",
+                            "quiet",
+                            "-show_entries",
+                            "format=duration",
+                            "-of",
+                            "csv=p=0",
+                            temp_file_path,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
 
                     duration = float(result.stdout.strip())
                     restore_delay = max(duration + 1.0, 3.0)
-                    _LOGGER.info("Scheduling Sonos restore in %.1f seconds", restore_delay)
+                    _LOGGER.info(
+                        "Scheduling Sonos restore in %.1f seconds", restore_delay
+                    )
 
                     async def restore_sonos():
                         await asyncio.sleep(restore_delay)
                         try:
                             await self.hass.services.async_call(
-                                "sonos", "restore", {"entity_id": entity_id}, blocking=True,
+                                "sonos",
+                                "restore",
+                                {"entity_id": entity_id},
+                                blocking=True,
                             )
                             _LOGGER.info("Sonos state restored successfully")
                         except Exception as restore_error:
-                            _LOGGER.warning("Could not restore Sonos state: %s", restore_error)
+                            _LOGGER.warning(
+                                "Could not restore Sonos state: %s", restore_error
+                            )
 
                     self.hass.async_create_task(restore_sonos())
                 except subprocess.CalledProcessError:
-                    _LOGGER.warning("Could not determine audio duration, using fixed restore delay")
+                    _LOGGER.warning(
+                        "Could not determine audio duration, using fixed restore delay"
+                    )
                     await self._schedule_fallback_restore(entity_id)
         except Exception as schedule_error:
             _LOGGER.warning("Could not schedule Sonos restore: %s", schedule_error)
@@ -318,7 +374,10 @@ class VoiceReplayUploadView(HomeAssistantView):
             await asyncio.sleep(5.0)
             try:
                 await self.hass.services.async_call(
-                    "sonos", "restore", {"entity_id": entity_id}, blocking=True,
+                    "sonos",
+                    "restore",
+                    {"entity_id": entity_id},
+                    blocking=True,
                 )
                 _LOGGER.info("Sonos state restored (fallback timing)")
             except Exception as restore_error:
