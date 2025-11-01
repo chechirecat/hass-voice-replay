@@ -17,8 +17,6 @@ UPLOAD_URL = f"/api/{DOMAIN}/upload"
 UPLOAD_NAME = f"api:{DOMAIN}:upload"
 MEDIA_PLAYERS_URL = f"/api/{DOMAIN}/media_players"
 MEDIA_PLAYERS_NAME = f"api:{DOMAIN}:media_players"
-MEDIA_URL = f"/api/{DOMAIN}/media"
-MEDIA_NAME = f"api:{DOMAIN}:media"
 TTS_CONFIG_URL = f"/api/{DOMAIN}/tts_config"
 TTS_CONFIG_NAME = f"api:{DOMAIN}:tts_config"
 
@@ -586,9 +584,9 @@ class VoiceReplayUploadView(HomeAssistantView):
     async def _handle_audio_recording(
         self, entity_id: str, fields: dict
     ) -> web.Response:
-        """Handle audio recording upload and playback."""
+        """Handle audio recording upload and playback using media source."""
         import os
-        import tempfile
+        from datetime import datetime
 
         audio_data = fields.get("audio")
         if not audio_data:
@@ -606,25 +604,43 @@ class VoiceReplayUploadView(HomeAssistantView):
             "Processing audio upload: %s -> %s", provided_content_type, file_extension
         )
 
-        # Save audio temporarily
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=file_extension
-        ) as tmp_file:
-            tmp_file.write(audio_data)
-            temp_path = tmp_file.name
+        # Get the media folder path from integration data
+        media_folder_path = self.hass.data.get(DOMAIN, {}).get("media_folder_path")
+        if not media_folder_path:
+            return web.json_response(
+                {"error": "Media folder not configured"}, status=500
+            )
 
-        # Convert WebM to MP3 if needed
-        final_content_type = await self._convert_webm_to_mp3(
-            temp_path, provided_content_type, file_extension
+        # Create unique filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[
+            :-3
+        ]  # Include milliseconds
+        filename = f"voice_recording_{timestamp}{file_extension}"
+        file_path = os.path.join(media_folder_path, filename)
+
+        # Save audio to media folder
+        try:
+            with open(file_path, "wb") as f:
+                f.write(audio_data)
+            _LOGGER.info("Saved voice recording to: %s", file_path)
+        except Exception as e:
+            _LOGGER.error("Failed to save voice recording: %s", e)
+            return web.json_response(
+                {"error": f"Failed to save recording: {str(e)}"}, status=500
+            )
+
+        # Convert WebM to MP3 if needed (updates file in place)
+        await self._convert_webm_to_mp3(
+            file_path, provided_content_type, file_extension
         )
 
-        # Create a URL for serving
-        media_url = f"/api/{DOMAIN}/media/{os.path.basename(temp_path)}"
-        self.hass.data.setdefault(DOMAIN, {})
-        self.hass.data[DOMAIN][os.path.basename(temp_path)] = temp_path
+        # Create media source URI
+        media_content_id = (
+            f"media-source://media_source/local/voice-recordings/{filename}"
+        )
 
-        # Schedule cleanup
-        await self._schedule_file_cleanup(temp_path)
+        # Schedule cleanup (optional - keep recordings for 10 minutes)
+        await self._schedule_media_file_cleanup(file_path, filename)
 
         # Get volume control settings
         tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
@@ -638,12 +654,15 @@ class VoiceReplayUploadView(HomeAssistantView):
                 entity_id, volume_boost_amount
             )
 
-        # Play the audio
-        await self._play_audio(
-            entity_id, media_url, final_content_type, temp_path, original_volume
+        # Play the audio using media source announcement
+        await self._play_media_source_audio(
+            entity_id, media_content_id, file_path, original_volume
         )
 
-        return web.json_response({"status": "success", "message": "Playing audio"})
+        return web.json_response({
+            "status": "success",
+            "message": "Playing audio via media source",
+        })
 
     def _determine_file_format(self, provided_content_type: str) -> tuple[str, str]:
         """Determine file extension and media content type."""
@@ -701,321 +720,137 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         return provided_content_type
 
-    async def _schedule_file_cleanup(self, temp_path: str) -> None:
-        """Schedule cleanup of temporary files after 10 minutes."""
+    async def _schedule_media_file_cleanup(self, file_path: str, filename: str) -> None:
+        """Schedule cleanup of media files after 10 minutes."""
         import asyncio
         import os
 
-        async def cleanup_temp_file():
+        async def cleanup_media_file():
             await asyncio.sleep(600)  # 10 minutes
             try:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-                filename = os.path.basename(temp_path)
-                if filename in self.hass.data.get(DOMAIN, {}):
-                    del self.hass.data[DOMAIN][filename]
-                _LOGGER.debug("Cleaned up temporary file: %s", filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                _LOGGER.debug("Cleaned up media file: %s", filename)
             except Exception as cleanup_error:
-                _LOGGER.warning("Could not cleanup temporary file: %s", cleanup_error)
+                _LOGGER.warning("Could not cleanup media file: %s", cleanup_error)
 
-        self.hass.async_create_task(cleanup_temp_file())
+        self.hass.async_create_task(cleanup_media_file())
 
-    async def _play_audio(
+    async def _play_media_source_audio(
         self,
         entity_id: str,
-        media_url: str,
-        final_content_type: str,
-        temp_path: str,
+        media_content_id: str,
+        file_path: str,
         original_volume: float | None = None,
     ) -> None:
-        """Play audio on the specified media player."""
-        external_url = self.hass.config.external_url or "http://localhost:8123"
-        full_media_url = f"{external_url}{media_url}"
-
+        """Play audio using media source with announcement mode."""
         _LOGGER.info(
-            "Playing audio on %s with content type %s", entity_id, final_content_type
+            "Playing audio via media source on %s: %s", entity_id, media_content_id
         )
 
-        # Check if this is a Sonos speaker
-        is_sonos = any(
-            keyword in entity_id.lower()
-            for keyword in ["sonos", "play:1", "play:3", "play:5"]
-        )
-
-        if is_sonos:
-            await self._handle_sonos_playback(
-                entity_id, full_media_url, temp_path, original_volume
-            )
-        else:
-            # For non-Sonos players, use standard approach
+        try:
+            # Use media_player.play_media with announce=True for proper announcement behavior
             await self.hass.services.async_call(
                 "media_player",
                 "play_media",
                 {
                     "entity_id": entity_id,
-                    "media_content_id": full_media_url,
-                    "media_content_type": final_content_type,
+                    "media_content_id": media_content_id,
+                    "media_content_type": "music",
+                    "announce": True,
                 },
                 blocking=True,
             )
 
-            # Schedule volume restoration for non-Sonos players
+            _LOGGER.info("Successfully started media source playback with announcement")
+
+            # Schedule volume restoration if needed
             if original_volume is not None:
-                await self._schedule_volume_restore(entity_id, original_volume, False)
-
-    async def _handle_sonos_playback(
-        self,
-        entity_id: str,
-        full_media_url: str,
-        temp_path: str,
-        original_volume: float | None = None,
-    ) -> None:
-        """Handle Sonos-specific playback with snapshot/restore."""
-        # Create snapshot
-        await self._create_sonos_snapshot(entity_id)
-
-        # Play the audio
-        success = await self._play_on_sonos(entity_id, full_media_url)
-        if not success:
-            raise Exception("All Sonos content types failed")
-
-        # Schedule restoration (both Sonos state and volume)
-        await self._schedule_sonos_restore(entity_id, temp_path, original_volume)
-
-    async def _create_sonos_snapshot(self, entity_id: str) -> None:
-        """Create Sonos snapshot with fallback to stop."""
-        import asyncio
-
-        try:
-            _LOGGER.info("Creating Sonos snapshot before playing voice message")
-            await self.hass.services.async_call(
-                "sonos",
-                "snapshot",
-                {"entity_id": entity_id},
-                blocking=True,
-            )
-            await asyncio.sleep(0.2)
-        except Exception as snapshot_error:
-            _LOGGER.warning("Could not create Sonos snapshot: %s", snapshot_error)
-            try:
-                _LOGGER.debug("Falling back to simple stop for Sonos")
-                await self.hass.services.async_call(
-                    "media_player",
-                    "media_stop",
-                    {"entity_id": entity_id},
-                    blocking=True,
+                # Get audio duration for proper timing
+                restore_delay = await self._get_audio_duration_or_default(file_path)
+                await self._schedule_volume_restore_after_delay(
+                    entity_id, original_volume, restore_delay
                 )
-                await asyncio.sleep(0.5)
-            except Exception as stop_error:
-                _LOGGER.debug("Could not stop Sonos player: %s", stop_error)
 
-    async def _play_on_sonos(self, entity_id: str, full_media_url: str) -> bool:
-        """Try to play on Sonos with different content types."""
-        # Try multiple content types that work with Sonos URL streaming
-        sonos_content_types = [
-            "audio/mpeg",
-            "audio/mp3",
-            "audio/x-mpeg",
-            "audio/x-mp3",
-            "music",
-            "application/octet-stream",
-        ]
-
-        for sonos_type in sonos_content_types:
-            try:
-                _LOGGER.info(
-                    "Trying Sonos URL streaming with content type: %s", sonos_type
-                )
-                await self.hass.services.async_call(
-                    "media_player",
-                    "play_media",
-                    {
-                        "entity_id": entity_id,
-                        "media_content_id": full_media_url,
-                        "media_content_type": sonos_type,
-                    },
-                    blocking=True,
-                )
-                _LOGGER.info("Successfully started Sonos playback with: %s", sonos_type)
-                return True
-            except Exception as sonos_error:
-                # Handle specific UPnP errors
-                if "UPnP Error 701" in str(
-                    sonos_error
-                ) or "Transition not available" in str(sonos_error):
-                    _LOGGER.warning(
-                        "Sonos transition error with %s: %s", sonos_type, sonos_error
+        except Exception as playback_error:
+            _LOGGER.error("Failed to play media source audio: %s", playback_error)
+            # Restore volume immediately if playback failed
+            if original_volume is not None:
+                try:
+                    await self.hass.services.async_call(
+                        "media_player",
+                        "volume_set",
+                        {
+                            "entity_id": entity_id,
+                            "volume_level": original_volume,
+                        },
+                        blocking=True,
                     )
-                    _LOGGER.info("Retrying after clearing Sonos state...")
-
-                    try:
-                        # Try to clear the Sonos state
-                        await self.hass.services.async_call(
-                            "media_player",
-                            "media_stop",
-                            {"entity_id": entity_id},
-                            blocking=True,
-                        )
-                        import asyncio
-
-                        await asyncio.sleep(1.0)  # Longer delay for problematic state
-
-                        # Retry the play command with this content type
-                        await self.hass.services.async_call(
-                            "media_player",
-                            "play_media",
-                            {
-                                "entity_id": entity_id,
-                                "media_content_id": full_media_url,
-                                "media_content_type": sonos_type,
-                            },
-                            blocking=True,
-                        )
-                        _LOGGER.info(
-                            "Successfully played after Sonos state recovery with: %s",
-                            sonos_type,
-                        )
-                        return True
-                    except Exception as retry_error:
-                        _LOGGER.error(
-                            "Sonos retry with %s also failed: %s",
-                            sonos_type,
-                            retry_error,
-                        )
-                        continue  # Try next content type
-                else:
+                except Exception as volume_error:
                     _LOGGER.warning(
-                        "Sonos content type %s failed: %s", sonos_type, sonos_error
+                        "Could not restore volume after playback error: %s",
+                        volume_error,
                     )
-                    continue
+            raise
 
-        return False
-
-    async def _schedule_sonos_restore(
-        self, entity_id: str, temp_path: str, original_volume: float | None = None
-    ) -> None:
-        """Schedule Sonos state restoration based on audio duration."""
-        import asyncio
+    async def _get_audio_duration_or_default(self, file_path: str) -> float:
+        """Get audio file duration or return default value."""
         import os
+        import shutil
         import subprocess
 
         try:
-            temp_file_path = self.hass.data[DOMAIN][os.path.basename(temp_path)]
-            if os.path.exists(temp_file_path):
-                try:
-                    result = subprocess.run(
-                        [
-                            "ffprobe",
-                            "-v",
-                            "quiet",
-                            "-show_entries",
-                            "format=duration",
-                            "-of",
-                            "csv=p=0",
-                            temp_file_path,
-                        ],
-                        capture_output=True,
-                        text=True,
-                        check=True,
-                    )
+            if os.path.exists(file_path) and shutil.which("ffprobe"):
+                result = subprocess.run(
+                    [
+                        "ffprobe",
+                        "-v",
+                        "quiet",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "csv=p=0",
+                        file_path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                duration = float(result.stdout.strip())
+                return max(duration + 1.0, 3.0)
+        except Exception as e:
+            _LOGGER.debug("Could not determine audio duration: %s", e)
 
-                    duration = float(result.stdout.strip())
-                    restore_delay = max(duration + 1.0, 3.0)
-                    _LOGGER.info(
-                        "Scheduling Sonos restore in %.1f seconds", restore_delay
-                    )
+        return 5.0  # Default fallback
 
-                    async def restore_sonos():
-                        await asyncio.sleep(restore_delay)
-                        try:
-                            await self.hass.services.async_call(
-                                "sonos",
-                                "restore",
-                                {"entity_id": entity_id},
-                                blocking=True,
-                            )
-                            _LOGGER.info("Sonos state restored successfully")
-
-                            # Also restore volume if needed
-                            if original_volume is not None:
-                                try:
-                                    _LOGGER.info(
-                                        "Restoring Sonos volume to %.2f",
-                                        original_volume,
-                                    )
-                                    await self.hass.services.async_call(
-                                        "media_player",
-                                        "volume_set",
-                                        {
-                                            "entity_id": entity_id,
-                                            "volume_level": original_volume,
-                                        },
-                                        blocking=True,
-                                    )
-                                    _LOGGER.info("Sonos volume restored successfully")
-                                except Exception as volume_error:
-                                    _LOGGER.warning(
-                                        "Could not restore Sonos volume: %s",
-                                        volume_error,
-                                    )
-
-                        except Exception as restore_error:
-                            _LOGGER.warning(
-                                "Could not restore Sonos state: %s", restore_error
-                            )
-
-                    self.hass.async_create_task(restore_sonos())
-                except subprocess.CalledProcessError:
-                    _LOGGER.warning(
-                        "Could not determine audio duration, using fixed restore delay"
-                    )
-                    await self._schedule_fallback_restore(entity_id, original_volume)
-        except Exception as schedule_error:
-            _LOGGER.warning("Could not schedule Sonos restore: %s", schedule_error)
-
-    async def _schedule_fallback_restore(
-        self, entity_id: str, original_volume: float | None = None
+    async def _schedule_volume_restore_after_delay(
+        self, entity_id: str, original_volume: float, delay: float
     ) -> None:
-        """Schedule Sonos restore with fixed delay as fallback."""
+        """Schedule volume restoration after a specific delay."""
         import asyncio
 
-        async def restore_sonos_fallback():
-            await asyncio.sleep(5.0)
+        async def restore_volume_delayed():
+            await asyncio.sleep(delay)
             try:
+                _LOGGER.info(
+                    "Restoring volume for %s to %.2f", entity_id, original_volume
+                )
                 await self.hass.services.async_call(
-                    "sonos",
-                    "restore",
-                    {"entity_id": entity_id},
+                    "media_player",
+                    "volume_set",
+                    {
+                        "entity_id": entity_id,
+                        "volume_level": original_volume,
+                    },
                     blocking=True,
                 )
-                _LOGGER.info("Sonos state restored (fallback timing)")
-
-                # Also restore volume if needed
-                if original_volume is not None:
-                    try:
-                        _LOGGER.info(
-                            "Restoring Sonos volume to %.2f (fallback)", original_volume
-                        )
-                        await self.hass.services.async_call(
-                            "media_player",
-                            "volume_set",
-                            {
-                                "entity_id": entity_id,
-                                "volume_level": original_volume,
-                            },
-                            blocking=True,
-                        )
-                        _LOGGER.info("Sonos volume restored successfully (fallback)")
-                    except Exception as volume_error:
-                        _LOGGER.warning(
-                            "Could not restore Sonos volume (fallback): %s",
-                            volume_error,
-                        )
-
+                _LOGGER.info("Volume restored successfully for %s", entity_id)
             except Exception as restore_error:
-                _LOGGER.warning("Could not restore Sonos state: %s", restore_error)
+                _LOGGER.warning(
+                    "Could not restore volume for %s: %s", entity_id, restore_error
+                )
 
-        self.hass.async_create_task(restore_sonos_fallback())
+        self.hass.async_create_task(restore_volume_delayed())
 
     async def _is_wyoming_tts(self, tts_entity_id: str) -> bool:
         """Check if a TTS entity is Wyoming-based."""
@@ -1089,58 +924,6 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
         return web.json_response(media_players)
 
 
-class VoiceReplayMediaView(HomeAssistantView):
-    """Serve temporary audio files without authentication for media players."""
-
-    url = f"{MEDIA_URL}/{{filename}}"
-    name = MEDIA_NAME
-    requires_auth = False  # Allow unauthenticated access for media players
-
-    def __init__(self, hass: HomeAssistant) -> None:
-        super().__init__()
-        self.hass = hass
-
-    async def get(self, request: web.Request) -> web.Response:
-        """Serve audio file."""
-        filename = request.match_info.get("filename")
-        if not filename:
-            return web.Response(status=404)
-
-        # Get file path from stored data
-        file_path = self.hass.data.get(DOMAIN, {}).get(filename)
-        if not file_path:
-            return web.Response(status=404)
-
-        try:
-            import os
-
-            if not os.path.exists(file_path):
-                return web.Response(status=404)
-
-            with open(file_path, "rb") as f:
-                content = f.read()
-
-            # Determine content type from file extension
-            content_type = "audio/webm"  # default
-            if filename.endswith(".m4a"):
-                content_type = "audio/mp4"
-            elif filename.endswith(".mp3"):
-                content_type = "audio/mpeg"
-            elif filename.endswith(".wav"):
-                content_type = "audio/wav"
-            elif filename.endswith(".webm"):
-                content_type = "audio/webm"
-
-            return web.Response(
-                body=content,
-                content_type=content_type,
-                headers={"Content-Disposition": f'inline; filename="{filename}"'},
-            )
-        except Exception as e:
-            _LOGGER.error("Error serving media file %s: %s", filename, e)
-            return web.Response(status=500)
-
-
 class VoiceReplayTTSConfigView(HomeAssistantView):
     """Get TTS configuration and available services."""
 
@@ -1183,7 +966,6 @@ def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:
     """Register the API views for backend functionality."""
     hass.http.register_view(VoiceReplayUploadView(hass))
     hass.http.register_view(VoiceReplayMediaPlayersView(hass))
-    hass.http.register_view(VoiceReplayMediaView(hass))
     hass.http.register_view(VoiceReplayTTSConfigView(hass))
 
     _LOGGER.debug("API views registered - frontend card is in separate repository")

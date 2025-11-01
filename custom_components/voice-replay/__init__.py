@@ -3,10 +3,43 @@
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 
 from .const import DATA_KEY, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _ensure_media_folder(hass) -> str:
+    """Ensure the voice recordings media folder exists and return its path."""
+    media_path = hass.config.path("media", "local", "voice-recordings")
+    Path(media_path).mkdir(parents=True, exist_ok=True)
+    _LOGGER.info("Voice recordings media folder ensured at: %s", media_path)
+    return media_path
+
+
+def _cleanup_media_folder(hass) -> None:
+    """Clean up the voice recordings media folder on integration unload."""
+    try:
+        media_path = hass.config.path("media", "local", "voice-recordings")
+        if os.path.exists(media_path):
+            # Remove all files in the folder
+            for filename in os.listdir(media_path):
+                file_path = os.path.join(media_path, filename)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                    _LOGGER.debug("Removed voice recording file: %s", filename)
+
+            # Remove the folder if it's empty
+            try:
+                os.rmdir(media_path)
+                _LOGGER.info("Removed voice recordings media folder")
+            except OSError:
+                # Folder not empty (other files exist), leave it
+                _LOGGER.debug("Voice recordings folder not removed (not empty)")
+    except Exception as e:
+        _LOGGER.warning("Could not cleanup voice recordings folder: %s", e)
 
 
 async def async_setup(hass, config: dict) -> bool:
@@ -27,6 +60,10 @@ async def async_setup_entry(hass, entry) -> bool:
     """Set up the integration from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN].setdefault(DATA_KEY, {})
+
+    # Create the media folder for voice recordings
+    media_folder_path = _ensure_media_folder(hass)
+    hass.data[DOMAIN]["media_folder_path"] = media_folder_path
 
     # Store TTS configuration from options
     tts_config = {
@@ -86,6 +123,9 @@ async def async_unload_entry(hass, entry) -> bool:
         hass.services.async_remove(DOMAIN, "replay")
     except Exception:
         _LOGGER.debug("Service removal failed or service not present", exc_info=True)
+
+    # Clean up the media folder
+    _cleanup_media_folder(hass)
 
     # Clear stored data for this integration instance
     hass.data.pop(DOMAIN, None)
