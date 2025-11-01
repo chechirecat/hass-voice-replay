@@ -706,8 +706,10 @@ class VoiceReplayUploadView(HomeAssistantView):
                         "error",
                         "-i",
                         temp_path,
-                        "-ss", "0.5",  # Skip first 0.5 seconds
-                        "-af", "afade=in:st=0:d=0.3,volume=1.4,aresample=44100",  # Fade in + normalize + resample
+                        "-ss",
+                        "0.5",  # Skip first 0.5 seconds
+                        "-af",
+                        "afade=in:st=0:d=0.3,volume=1.4,aresample=44100",  # Fade in + normalize + resample
                         "-ar",
                         "44100",  # Standard sample rate
                         "-ac",
