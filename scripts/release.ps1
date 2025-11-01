@@ -161,12 +161,27 @@ function Update-PyProjectVersion {
     param([string]$NewVersion)
     Write-Info "Updating pyproject.toml to version $NewVersion"
 
-    $content = Get-Content $PyProjectFile -Raw
-    # Only update version in [project] section, not tool configurations
-    $pattern = '(?<=\[project\][\s\S]*?)^version\s*=\s*"[^"]*"'
-    $replacement = 'version = "' + $NewVersion + '"'
-    $content = $content -replace $pattern, $replacement, 1
-    Set-Content $PyProjectFile $content -NoNewline
+    $lines = Get-Content $PyProjectFile
+    $inProjectSection = $false
+    $updated = $false
+    
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\[project\]') {
+            $inProjectSection = $true
+            continue
+        }
+        if ($lines[$i] -match '^\[' -and $lines[$i] -notmatch '^\[project\]') {
+            $inProjectSection = $false
+            continue
+        }
+        if ($inProjectSection -and $lines[$i] -match '^version\s*=\s*"[^"]*"' -and -not $updated) {
+            $lines[$i] = 'version = "' + $NewVersion + '"'
+            $updated = $true
+            break
+        }
+    }
+    
+    $lines | Set-Content $PyProjectFile
 }
 
 function Update-TestJsVersion {
