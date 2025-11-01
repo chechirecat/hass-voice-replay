@@ -1,6 +1,6 @@
 [project]
 name = "voice-replay"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = ["colorlog", "homeassistant==2025.10.4"]
 requires-python = ">=3.12"
 
@@ -65,7 +65,7 @@ preview = true
 
 [tool.ruff]
 line-length = 88
-target-version = "0.4.4"
+target-version = "0.4.5"
 preview = true
 
 [tool.typos.default.extend-identifiers]
