@@ -10,51 +10,25 @@
   "options": {
     "step": {
       "init": {
-        "title": "TTS Engine Auswahl",
-        "description": "Wählen Sie die Text-zu-Sprache Engine für Voice Replay",
+        "title": "Voice Replay Konfiguration",
+        "description": "Konfigurieren Sie alle TTS-Einstellungen an einem Ort.\n\nEngine: **{engine}**\nSprache: **{language}**\nVerfügbare Stimmen: **{voice_count}**\nVerfügbare Sprecher: **{speaker_count}**",
         "data": {
-          "tts_engine": "TTS Engine"
-        },
-        "data_description": {
-          "tts_engine": "Wählen Sie die TTS Engine für die Sprachwiedergabe. Wählen Sie 'Automatisch erkennen' um automatisch eine verfügbare Engine zu finden."
-        }
-      },
-      "language": {
-        "title": "Sprach Auswahl",
-        "description": "Wählen Sie die Sprache für die TTS Ausgabe (Engine: {engine})",
-        "data": {
-          "tts_language": "Sprache"
-        },
-        "data_description": {
-          "tts_language": "Wählen Sie die Sprache für die Text-zu-Sprache Ausgabe"
-        }
-      },
-      "voice": {
-        "title": "Stimmen Auswahl",
-        "description": "Wählen Sie eine Stimme für {language} auf {engine} ({voice_count} verfügbar)",
-        "data": {
-          "tts_voice": "Stimme"
-        },
-        "data_description": {
-          "tts_voice": "Wählen Sie eine bestimmte Stimme. Lassen Sie das Feld leer, um die Standard-Stimme der Engine für diese Sprache zu verwenden."
-        }
-      },
-      "speaker": {
-        "title": "Sprecher Auswahl",
-        "description": "Wählen Sie einen Sprecher für Stimmen mit mehreren Sprechern.\n\nEngine: **{engine}**\nStimme: **{voice}**\nVerfügbare Sprecher: **{speaker_count}**",
-        "data": {
-          "tts_speaker": "Sprecher",
+          "tts_engine": "TTS Engine",
+          "tts_language": "Sprache",
+          "tts_voice_combined": "Stimme & Sprecher",
           "sonos_announcement_mode": "Sonos Lautsprecher Vorbereitung"
         },
         "data_description": {
-          "tts_speaker": "Wählen Sie einen bestimmten Sprecher für Stimmen, die mehrere Sprecher unterstützen (häufig bei Wyoming/Piper TTS), oder lassen Sie das Feld leer für Standard",
+          "tts_engine": "Wählen Sie die TTS Engine für die Sprachwiedergabe. Wählen Sie 'Automatisch erkennen' um automatisch eine verfügbare Engine zu finden.",
+          "tts_language": "Wählen Sie die Sprache für die Text-zu-Sprache Ausgabe",
+          "tts_voice_combined": "Wählen Sie eine Stimme und Sprecher Kombination. Wird als 'Sprecher Name (Qualität)' für einfache Auswahl angezeigt.",
           "sonos_announcement_mode": "Wie Sonos Lautsprecher vor der TTS-Wiedergabe vorbereitet werden, um Abschneiden des Audios zu verhindern"
         }
       }
     },
     "error": {
       "voice_not_available": "Die ausgewählte Stimme ist für diese TTS-Engine nicht verfügbar. Bitte wählen Sie eine andere Stimme oder überprüfen Sie Ihre TTS-Konfiguration.",
-      "speaker_not_available": "Der ausgewählte Sprecher ist für diese Stimme nicht verfügbar. Bitte wählen Sie einen anderen Sprecher oder lassen Sie das Feld leer für Standard."
+      "speaker_not_available": "Der ausgewählte Sprecher ist für diese Stimme nicht verfügbar. Bitte wählen Sie eine andere Stimme-Sprecher Kombination."
     }
   },
   "services": {

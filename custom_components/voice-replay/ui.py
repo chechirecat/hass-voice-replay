@@ -837,6 +837,39 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         self.hass.async_create_task(restore_sonos_fallback())
 
+    async def _is_wyoming_tts(self, tts_entity_id: str) -> bool:
+        """Check if a TTS entity is Wyoming-based."""
+        try:
+            state = self.hass.states.get(tts_entity_id)
+            if not state:
+                return False
+
+            # Check if it's explicitly a Wyoming entity
+            if "wyoming" in tts_entity_id.lower():
+                return True
+
+            # Check if it has Wyoming-specific attributes
+            supported_options = state.attributes.get("supported_options", [])
+            if "speaker" in supported_options:
+                return True
+
+            # Check for Wyoming-style integration or platform
+            integration = state.attributes.get("integration")
+            platform = state.attributes.get("platform")
+            if integration == "wyoming" or platform == "wyoming":
+                return True
+
+            # Check attribution for Wyoming/Piper
+            attribution = state.attributes.get("attribution")
+            if attribution and (
+                "wyoming" in attribution.lower() or "piper" in attribution.lower()
+            ):
+                return True
+
+            return False
+        except Exception:
+            return False
+
 
 class VoiceReplayMediaPlayersView(HomeAssistantView):
     """Get available media players."""
@@ -964,39 +997,6 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
         except Exception as e:
             _LOGGER.error("Error getting TTS config: %s", e)
             return web.json_response({"available": False, "error": str(e)})
-
-    async def _is_wyoming_tts(self, tts_entity_id: str) -> bool:
-        """Check if a TTS entity is Wyoming-based."""
-        try:
-            state = self.hass.states.get(tts_entity_id)
-            if not state:
-                return False
-
-            # Check if it's explicitly a Wyoming entity
-            if "wyoming" in tts_entity_id.lower():
-                return True
-
-            # Check if it has Wyoming-specific attributes
-            supported_options = state.attributes.get("supported_options", [])
-            if "speaker" in supported_options:
-                return True
-
-            # Check for Wyoming-style integration or platform
-            integration = state.attributes.get("integration")
-            platform = state.attributes.get("platform")
-            if integration == "wyoming" or platform == "wyoming":
-                return True
-
-            # Check attribution for Wyoming/Piper
-            attribution = state.attributes.get("attribution")
-            if attribution and (
-                "wyoming" in attribution.lower() or "piper" in attribution.lower()
-            ):
-                return True
-
-            return False
-        except Exception:
-            return False
 
 
 def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:

@@ -48,69 +48,92 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         self._current_config = dict(config_entry.options)
 
     async def async_step_init(self, user_input=None):
-        """Manage the TTS engine selection."""
+        """Manage all TTS configuration in a single step."""
         errors = {}
 
         if user_input is not None:
-            self._current_config.update(user_input)
-            # If engine was selected, go to language step
-            if "tts_engine" in user_input:
-                return await self.async_step_language()
-            return self.async_create_entry(title="", data=self._current_config)
+            # Parse combined voice-speaker selection if present
+            combined_voice = user_input.get("tts_voice_combined")
+            if combined_voice:
+                voice, speaker = self._parse_combined_voice_value(combined_voice)
+                user_input["tts_voice"] = voice
+                user_input["tts_speaker"] = speaker
 
-        # Get available TTS engines
+            # Validate the configuration
+            selected_engine = user_input.get("tts_engine", "auto")
+            selected_language = user_input.get("tts_language", "de_DE")
+            selected_voice = user_input.get("tts_voice")
+            selected_speaker = user_input.get("tts_speaker")
+
+            # Validate voice if specified
+            if selected_voice and selected_engine != "auto":
+                available_voices = await self._get_engine_voices_for_language(
+                    selected_engine, selected_language
+                )
+                if available_voices and selected_voice not in available_voices:
+                    errors["tts_voice_combined"] = "voice_not_available"
+
+            # Validate speaker if specified
+            if selected_speaker and selected_voice and selected_engine != "auto":
+                is_valid = await self._validate_voice_speaker_combination(
+                    selected_engine, selected_voice, selected_speaker
+                )
+                if not is_valid:
+                    errors["tts_voice_combined"] = "speaker_not_available"
+
+            if not errors:
+                # Remove the combined field from the final data
+                final_data = dict(user_input)
+                final_data.pop("tts_voice_combined", None)
+                return self.async_create_entry(title="", data=final_data)
+
+        # Get current settings
+        current_engine = self.config_entry.options.get("tts_engine", "auto")
+        current_language = self.config_entry.options.get("tts_language", "de_DE")
+        current_voice = self.config_entry.options.get("tts_voice")
+        current_speaker = self.config_entry.options.get("tts_speaker")
+        current_sonos_mode = self.config_entry.options.get(
+            "sonos_announcement_mode", "silence"
+        )
+
+        # Get available options
         tts_engines = await self._get_tts_engines()
+        available_languages = await self._get_engine_languages(current_engine)
 
-        # Get current engine setting
-        current_tts_engine = self.config_entry.options.get("tts_engine", "auto")
+        # Get combined voice-speaker options
+        combined_voice_options = await self._get_combined_voice_options(
+            current_engine, current_language
+        )
 
-        # Build schema for engine selection
-        data_schema = vol.Schema({
-            vol.Optional(
-                "tts_engine", default=current_tts_engine
-            ): selector.SelectSelector(
+        # Determine current combined voice value
+        current_combined_voice = None
+        if current_voice:
+            if current_speaker:
+                current_combined_voice = f"{current_voice}|{current_speaker}"
+            else:
+                current_combined_voice = current_voice
+
+        # Build comprehensive schema
+        data_schema_dict = {}
+
+        # Engine selection
+        data_schema_dict[vol.Optional("tts_engine", default=current_engine)] = (
+            selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=tts_engines,
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
-            ),
-        })
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=data_schema,
-            errors=errors,
-            description_placeholders={},
+            )
         )
 
-    async def async_step_language(self, user_input=None):
-        """Manage the language selection."""
-        errors = {}
-
-        if user_input is not None:
-            self._current_config.update(user_input)
-            # If language was selected, go to voice step
-            if "tts_language" in user_input:
-                return await self.async_step_voice()
-            return self.async_create_entry(title="", data=self._current_config)
-
-        # Get available languages for selected engine
-        selected_engine = self._current_config.get("tts_engine", "auto")
-        available_languages = await self._get_engine_languages(selected_engine)
-
-        # Get current language setting
-        current_language = self.config_entry.options.get("tts_language", "de_DE")
-
-        # Build language options
-        language_options = []
+        # Language selection
         if available_languages:
-            # Use engine-specific languages
+            language_options = []
             for lang in available_languages:
-                # Create a more user-friendly label
                 label = self._format_language_label(lang)
                 language_options.append({"value": lang, "label": label})
         else:
-            # Default language options with common formats
+            # Default language options
             language_options = [
                 {"value": "de_DE", "label": "German (de_DE)"},
                 {"value": "de", "label": "German (de)"},
@@ -121,214 +144,37 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 {"value": "it", "label": "Italian (it)"},
             ]
 
-        data_schema = vol.Schema({
-            vol.Optional(
-                "tts_language", default=current_language
-            ): selector.SelectSelector(
+        data_schema_dict[vol.Optional("tts_language", default=current_language)] = (
+            selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=language_options,
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
-            ),
-        })
-
-        return self.async_show_form(
-            step_id="language",
-            data_schema=data_schema,
-            errors=errors,
-            description_placeholders={"engine": selected_engine},
-        )
-
-    async def async_step_voice(self, user_input=None):
-        """Manage the voice selection."""
-        errors = {}
-
-        if user_input is not None:
-            # Validate voice-speaker combination if speaker step is needed
-            selected_voice = user_input.get("tts_voice")
-            if selected_voice:
-                selected_engine = self._current_config.get("tts_engine", "auto")
-                available_speakers = await self._get_voice_speakers(
-                    selected_engine, selected_voice
-                )
-
-                # Add validation warning if voice might not be available
-                available_voices = await self._get_engine_voices_for_language(
-                    selected_engine, self._current_config.get("tts_language", "de")
-                )
-                if available_voices and selected_voice not in available_voices:
-                    errors["tts_voice"] = "voice_not_available"
-                    _LOGGER.warning(
-                        "Selected voice '%s' not in available voices for engine %s: %s",
-                        selected_voice,
-                        selected_engine,
-                        available_voices,
-                    )
-                else:
-                    self._current_config.update(user_input)
-                    # If voice has speakers, go to speaker step
-                    if available_speakers:
-                        return await self.async_step_speaker()
-                    return self.async_create_entry(title="", data=self._current_config)
-            else:
-                self._current_config.update(user_input)
-                return self.async_create_entry(title="", data=self._current_config)
-
-        # Get available voices for selected engine and language
-        selected_engine = self._current_config.get("tts_engine", "auto")
-        selected_language = self._current_config.get("tts_language", "de")
-        available_voices = await self._get_engine_voices_for_language(
-            selected_engine, selected_language
-        )
-
-        # Get current voice setting
-        current_voice = self.config_entry.options.get("tts_voice")
-
-        data_schema_dict = {}
-
-        if available_voices:
-            voice_options = [
-                {"value": voice, "label": voice} for voice in available_voices
-            ]
-            data_schema_dict[vol.Optional("tts_voice", default=current_voice)] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=voice_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                )
-            )
-        else:
-            # No voices available - show text input for manual entry
-            data_schema_dict[vol.Optional("tts_voice", default=current_voice or "")] = (
-                selector.TextSelector()
-            )
-
-        # Add Sonos announcement options
-        current_sonos_mode = self.config_entry.options.get(
-            "sonos_announcement_mode", "silence"
-        )
-
-        # Get localized option labels (fallback to English if translation not available)
-        locale = (
-            self.hass.config.language if hasattr(self.hass.config, "language") else "en"
-        )
-
-        if locale.startswith("de"):
-            # German labels
-            sonos_options = [
-                {"value": "silence", "label": "3 Sekunden Stille"},
-                {"value": "announcement", "label": "Sprachansage (Achtung...)"},
-                {
-                    "value": "disabled",
-                    "label": "Keine Ansage (schneller, aber möglicherweise abgeschnitten)",
-                },
-            ]
-        else:
-            # English labels (default)
-            sonos_options = [
-                {"value": "silence", "label": "3 second silence"},
-                {"value": "announcement", "label": "Verbal announcement (Achtung...)"},
-                {
-                    "value": "disabled",
-                    "label": "No announcement (faster but may cut off)",
-                },
-            ]
-
-        data_schema_dict[
-            vol.Optional("sonos_announcement_mode", default=current_sonos_mode)
-        ] = selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=sonos_options,
-                mode=selector.SelectSelectorMode.DROPDOWN,
             )
         )
 
-        data_schema = vol.Schema(data_schema_dict)
-
-        return self.async_show_form(
-            step_id="voice",
-            data_schema=data_schema,
-            errors=errors,
-            description_placeholders={
-                "engine": selected_engine,
-                "language": selected_language,
-                "voice_count": str(len(available_voices)) if available_voices else "0",
-            },
-        )
-
-    async def async_step_speaker(self, user_input=None):
-        """Manage the speaker selection for multi-speaker voices."""
-        errors = {}
-
-        if user_input is not None:
-            # Validate speaker selection
-            selected_speaker = user_input.get("tts_speaker")
-            if selected_speaker:
-                selected_engine = self._current_config.get("tts_engine", "auto")
-                selected_voice = self._current_config.get("tts_voice")
-
-                # Validate the voice-speaker combination
-                is_valid = await self._validate_voice_speaker_combination(
-                    selected_engine, selected_voice, selected_speaker
-                )
-                if not is_valid:
-                    errors["tts_speaker"] = "speaker_not_available"
-                    _LOGGER.warning(
-                        "Speaker '%s' not available for voice '%s' in engine %s",
-                        selected_speaker,
-                        selected_voice,
-                        selected_engine,
-                    )
-                else:
-                    self._current_config.update(user_input)
-                    return self.async_create_entry(title="", data=self._current_config)
-            else:
-                self._current_config.update(user_input)
-                return self.async_create_entry(title="", data=self._current_config)
-
-        # Get available speakers for selected voice
-        selected_engine = self._current_config.get("tts_engine", "auto")
-        selected_voice = self._current_config.get("tts_voice")
-        available_speakers = await self._get_voice_speakers(
-            selected_engine, selected_voice
-        )
-
-        # Get current speaker setting
-        current_speaker = self.config_entry.options.get("tts_speaker")
-
-        data_schema_dict = {}
-
-        if available_speakers:
-            speaker_options = [
-                {"value": speaker, "label": speaker} for speaker in available_speakers
-            ]
-            data_schema_dict[vol.Optional("tts_speaker", default=current_speaker)] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=speaker_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                )
-            )
-        else:
-            # No speakers available - show text input for manual entry
+        # Combined Voice and Speaker selection
+        if combined_voice_options:
             data_schema_dict[
-                vol.Optional("tts_speaker", default=current_speaker or "")
+                vol.Optional("tts_voice_combined", default=current_combined_voice)
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=combined_voice_options,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        else:
+            # Fallback to text input if no voices detected
+            data_schema_dict[
+                vol.Optional("tts_voice_combined", default=current_combined_voice or "")
             ] = selector.TextSelector()
 
-        # Add Sonos announcement options
-        current_sonos_mode = self.config_entry.options.get(
-            "sonos_announcement_mode", "silence"
-        )
-
-        # Get localized option labels (fallback to English if translation not available)
+        # Sonos announcement options
         locale = (
             self.hass.config.language if hasattr(self.hass.config, "language") else "en"
         )
 
         if locale.startswith("de"):
-            # German labels
             sonos_options = [
                 {"value": "silence", "label": "3 Sekunden Stille"},
                 {"value": "announcement", "label": "Sprachansage (Achtung...)"},
@@ -338,7 +184,6 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 },
             ]
         else:
-            # English labels (default)
             sonos_options = [
                 {"value": "silence", "label": "3 second silence"},
                 {"value": "announcement", "label": "Verbal announcement (Achtung...)"},
@@ -360,15 +205,16 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         data_schema = vol.Schema(data_schema_dict)
 
         return self.async_show_form(
-            step_id="speaker",
+            step_id="init",
             data_schema=data_schema,
             errors=errors,
             description_placeholders={
-                "engine": selected_engine,
-                "voice": selected_voice,
-                "speaker_count": str(len(available_speakers))
-                if available_speakers
+                "engine": current_engine,
+                "language": current_language,
+                "voice_count": str(len(combined_voice_options))
+                if combined_voice_options
                 else "0",
+                "speaker_count": "auto-detected",  # Speakers are now included in voice options
             },
         )
 
@@ -565,6 +411,118 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         friendly_name = lang_map.get(lang_code, lang_code.upper())
         return f"{friendly_name} ({lang_code})"
 
+    async def _get_combined_voice_options(
+        self, engine_entity_id: str, language: str
+    ) -> list[dict]:
+        """Get combined voice-speaker options in human-readable format."""
+        if engine_entity_id == "auto":
+            return []
+
+        # Get all available voices for the language
+        available_voices = await self._get_engine_voices_for_language(
+            engine_entity_id, language
+        )
+
+        combined_options = []
+
+        for voice in available_voices:
+            # Try to get speakers for this voice
+            speakers = await self._get_voice_speakers(engine_entity_id, voice)
+
+            if speakers:
+                # Create combined options for each speaker
+                for speaker in speakers:
+                    # Create human-readable label
+                    display_name = self._format_voice_display_name(voice, speaker)
+                    # Store both voice and speaker in the value as a special format
+                    combined_value = f"{voice}|{speaker}"
+                    combined_options.append({
+                        "value": combined_value,
+                        "label": display_name,
+                    })
+            else:
+                # No speakers, just use the voice name
+                display_name = self._format_voice_display_name(voice, None)
+                combined_options.append({
+                    "value": voice,  # Just the voice, no separator
+                    "label": display_name,
+                })
+
+        return combined_options
+
+    def _format_voice_display_name(self, voice: str, speaker: str | None) -> str:
+        """Format voice and speaker into human-readable display name."""
+        # Parse voice name structure: "language-speakername-pitch"
+        if "-" in voice:
+            parts = voice.split("-")
+
+            if len(parts) >= 3:
+                # Expected format: ["de_DE", "thorsten", "low"]
+                # Skip first part (language), use middle part(s) as speaker, last part as pitch
+                pitch_part = parts[-1]
+                speaker_parts = parts[1:-1]  # Everything between language and pitch
+
+                # Format speaker name: capitalize each word
+                if speaker_parts:
+                    formatted_speaker = " ".join(
+                        part.capitalize() for part in speaker_parts
+                    )
+                    return f"{formatted_speaker} ({pitch_part})"
+
+            elif len(parts) == 2:
+                # Format might be "speakername-pitch" without language
+                speaker_part = parts[0]
+                pitch_part = parts[1]
+
+                # Check if first part looks like a language code
+                if len(speaker_part) <= 5 and (
+                    "_" in speaker_part or speaker_part.isupper()
+                ):
+                    # Likely a language code, treat second part as speaker name
+                    return parts[1].capitalize()
+                else:
+                    # First part is speaker, second is pitch
+                    formatted_speaker = speaker_part.capitalize()
+                    return f"{formatted_speaker} ({pitch_part})"
+
+        # If no dashes or unexpected format, try to extract from underscores
+        if "_" in voice:
+            # Handle formats like "de_DE_thorsten_low"
+            parts = voice.split("_")
+            if len(parts) >= 3:
+                # Skip language parts, use the rest
+                non_language_parts = []
+                for part in parts:
+                    # Skip obvious language codes (2 letters, all caps)
+                    if not (len(part) <= 2 and part.isupper()):
+                        non_language_parts.append(part)
+
+                if len(non_language_parts) >= 2:
+                    # Last part is likely pitch, everything else is speaker
+                    speaker_parts = non_language_parts[:-1]
+                    pitch_part = non_language_parts[-1]
+                    formatted_speaker = " ".join(
+                        part.capitalize() for part in speaker_parts
+                    )
+                    return f"{formatted_speaker} ({pitch_part})"
+                elif len(non_language_parts) == 1:
+                    return non_language_parts[0].capitalize()
+
+        # Fallback: return the original voice name, formatted
+        return voice.replace("_", " ").replace("-", " ").title()
+
+    def _parse_combined_voice_value(
+        self, combined_value: str
+    ) -> tuple[str, str | None]:
+        """Parse combined voice value back into voice and speaker components."""
+        if "|" in combined_value:
+            # Split the combined value
+            voice, speaker = combined_value.split("|", 1)
+            return voice, speaker
+        else:
+            # No speaker, just voice
+            return combined_value, None
+
     async def _get_voice_speakers(
         self, engine_entity_id: str, voice_name: str
     ) -> list[str]:
@@ -592,13 +550,39 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 return list(all_speakers)
 
             # Method 3: Check if the voice name contains speaker information
-            # For Piper voices like "de_DE-eva-low", the speaker might be "eva"
+            # For Piper voices like "de_DE-thorsten-low", the speaker might be "thorsten"
             if "-" in voice_name:
                 parts = voice_name.split("-")
-                if len(parts) >= 3:
-                    # Format: language-speaker-quality
-                    potential_speaker = parts[1]
-                    return [potential_speaker]
+                if len(parts) >= 2:
+                    # Try different patterns:
+                    # Format 1: language-speaker-quality (e.g., "de_DE-thorsten-low")
+                    # Format 2: speaker-quality (e.g., "thorsten-low")
+                    potential_speakers = []
+
+                    # Check if first part looks like language code
+                    first_part = parts[0]
+                    if "_" in first_part or len(first_part) == 2:
+                        # Likely language-speaker-quality format
+                        if len(parts) >= 2:
+                            potential_speakers.append(parts[1])  # thorsten
+                    else:
+                        # Likely speaker-quality format
+                        potential_speakers.append(parts[0])  # speaker name
+
+                    # Also try extracting speaker names that aren't just quality indicators
+                    for part in parts[1:]:  # Skip the first part (likely language)
+                        if part not in ["low", "medium", "high", "x_low", "x-low"]:
+                            potential_speakers.append(part)
+
+                    # Remove duplicates and return
+                    unique_speakers = list(set(potential_speakers))
+                    if unique_speakers:
+                        _LOGGER.debug(
+                            "Extracted speakers from voice name '%s': %s",
+                            voice_name,
+                            unique_speakers,
+                        )
+                        return unique_speakers
 
             # Method 4: Check for voice-specific speaker mappings
             voice_speaker_mapping = state.attributes.get("voice_speakers", {})
