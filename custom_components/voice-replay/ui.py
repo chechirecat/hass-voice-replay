@@ -80,7 +80,12 @@ class VoiceReplayUploadView(HomeAssistantView):
             configured_language = tts_config.get("language", "de_DE")
             configured_voice = tts_config.get("voice")
 
-            _LOGGER.info("TTS request - Engine: %s, Language: %s, Voice: %s", configured_engine, configured_language, configured_voice)
+            _LOGGER.info(
+                "TTS request - Engine: %s, Language: %s, Voice: %s",
+                configured_engine,
+                configured_language,
+                configured_voice,
+            )
 
             # Determine which TTS engine to use
             if configured_engine == "auto":
@@ -95,13 +100,15 @@ class VoiceReplayUploadView(HomeAssistantView):
                 else:
                     _LOGGER.warning(
                         "Configured TTS engine %s not available, falling back to auto-detect",
-                        configured_engine
+                        configured_engine,
                     )
                     tts_entity = await self._get_available_tts_engine()
                     _LOGGER.info("Fallback TTS engine: %s", tts_entity)
 
             if not tts_entity:
-                return web.json_response({"error": "No TTS engine available"}, status=400)
+                return web.json_response(
+                    {"error": "No TTS engine available"}, status=400
+                )
 
             _LOGGER.info(
                 "Using TTS engine: %s for entity: %s (lang=%s, voice=%s)",
@@ -129,22 +136,36 @@ class VoiceReplayUploadView(HomeAssistantView):
             # Normalize language for the engine
             normalized_language = configured_language
             if configured_language:
-                normalized_language = await self._normalize_language_for_engine(tts_entity, configured_language)
-                _LOGGER.info("Language normalized: %s -> %s for engine %s", configured_language, normalized_language, tts_entity)
+                normalized_language = await self._normalize_language_for_engine(
+                    tts_entity, configured_language
+                )
+                _LOGGER.info(
+                    "Language normalized: %s -> %s for engine %s",
+                    configured_language,
+                    normalized_language,
+                    tts_entity,
+                )
             else:
                 _LOGGER.warning("No language configured - TTS will use engine default")
 
             # For Sonos speakers, prepare the message with silence/announcement
-            is_sonos = any(keyword in entity_id.lower() for keyword in ["sonos", "play:1", "play:3", "play:5"])
+            is_sonos = any(
+                keyword in entity_id.lower()
+                for keyword in ["sonos", "play:1", "play:3", "play:5"]
+            )
             if is_sonos:
-                _LOGGER.info("Detected Sonos speaker, preparing message with silence...")
+                _LOGGER.info(
+                    "Detected Sonos speaker, preparing message with silence..."
+                )
                 # Create snapshot first
                 try:
                     await self.hass.services.async_call(
                         "sonos", "snapshot", {"entity_id": entity_id}, blocking=True
                     )
                 except Exception as sonos_prep_error:
-                    _LOGGER.warning("Could not create Sonos snapshot: %s", sonos_prep_error)
+                    _LOGGER.warning(
+                        "Could not create Sonos snapshot: %s", sonos_prep_error
+                    )
 
                 # Add silence or announcement to the beginning of the text
                 text = await self._prepare_sonos_message(text, tts_entity)
@@ -178,8 +199,10 @@ class VoiceReplayUploadView(HomeAssistantView):
 
             # For Sonos, schedule restoration after a delay
             if is_sonos:
+
                 async def restore_sonos():
                     import asyncio
+
                     await asyncio.sleep(10.0)  # Wait for TTS to finish
                     try:
                         await self.hass.services.async_call(
@@ -187,29 +210,52 @@ class VoiceReplayUploadView(HomeAssistantView):
                         )
                         _LOGGER.info("Sonos state restored after TTS")
                     except Exception as restore_error:
-                        _LOGGER.warning("Could not restore Sonos state: %s", restore_error)
+                        _LOGGER.warning(
+                            "Could not restore Sonos state: %s", restore_error
+                        )
 
                 self.hass.async_create_task(restore_sonos())
 
-            return web.json_response({"status": "success", "message": f"Playing TTS audio via {tts_entity}"})
+            return web.json_response({
+                "status": "success",
+                "message": f"Playing TTS audio via {tts_entity}",
+            })
 
         except Exception as tts_error:
             error_msg = str(tts_error)
 
             # Provide more specific error messages for common issues
             if "language" in error_msg.lower():
-                _LOGGER.error("TTS language error for engine %s with language '%s': %s", tts_entity, configured_language, tts_error)
-                return web.json_response({
-                    "error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"
-                }, status=400)
+                _LOGGER.error(
+                    "TTS language error for engine %s with language '%s': %s",
+                    tts_entity,
+                    configured_language,
+                    tts_error,
+                )
+                return web.json_response(
+                    {
+                        "error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"
+                    },
+                    status=400,
+                )
             elif "voice" in error_msg.lower():
-                _LOGGER.error("TTS voice error for engine %s with voice '%s': %s", tts_entity, configured_voice, tts_error)
-                return web.json_response({
-                    "error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"
-                }, status=400)
+                _LOGGER.error(
+                    "TTS voice error for engine %s with voice '%s': %s",
+                    tts_entity,
+                    configured_voice,
+                    tts_error,
+                )
+                return web.json_response(
+                    {
+                        "error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"
+                    },
+                    status=400,
+                )
             else:
                 _LOGGER.error("TTS service error: %s", tts_error)
-                return web.json_response({"error": f"TTS service failed: {error_msg}"}, status=500)
+                return web.json_response(
+                    {"error": f"TTS service failed: {error_msg}"}, status=500
+                )
 
     async def _get_available_tts_engine(self) -> str | None:
         """Find an available TTS engine entity."""
@@ -245,14 +291,18 @@ class VoiceReplayUploadView(HomeAssistantView):
             if not state:
                 return []
 
-            voices = state.attributes.get("voices") or state.attributes.get("available_voices")
+            voices = state.attributes.get("voices") or state.attributes.get(
+                "available_voices"
+            )
             if voices and isinstance(voices, (list, tuple)):
                 return list(voices)
         except Exception as e:
             _LOGGER.debug("Could not get voices for %s: %s", engine_entity_id, e)
         return []
 
-    async def _normalize_language_for_engine(self, engine_entity_id: str, language: str) -> str:
+    async def _normalize_language_for_engine(
+        self, engine_entity_id: str, language: str
+    ) -> str:
         """Normalize language code for the specific TTS engine."""
         try:
             state = self.hass.states.get(engine_entity_id)
@@ -261,16 +311,29 @@ class VoiceReplayUploadView(HomeAssistantView):
                 return language
 
             # Get supported languages from the engine
-            supported_langs = state.attributes.get("supported_languages") or state.attributes.get("languages")
+            supported_langs = state.attributes.get(
+                "supported_languages"
+            ) or state.attributes.get("languages")
             if not supported_langs:
-                _LOGGER.warning("No supported languages found for engine %s", engine_entity_id)
+                _LOGGER.warning(
+                    "No supported languages found for engine %s", engine_entity_id
+                )
                 return language
 
-            _LOGGER.info("Engine %s supports languages: %s, requesting: %s", engine_entity_id, supported_langs, language)
+            _LOGGER.info(
+                "Engine %s supports languages: %s, requesting: %s",
+                engine_entity_id,
+                supported_langs,
+                language,
+            )
 
             # If the current language is supported, use it as-is
             if language in supported_langs:
-                _LOGGER.info("Language '%s' is directly supported by %s", language, engine_entity_id)
+                _LOGGER.info(
+                    "Language '%s' is directly supported by %s",
+                    language,
+                    engine_entity_id,
+                )
                 return language
 
             # Try common format variations
@@ -297,7 +360,12 @@ class VoiceReplayUploadView(HomeAssistantView):
             # Check if any variation is supported
             for variation in language_variations:
                 if variation in supported_langs:
-                    _LOGGER.info("Language mapping: '%s' -> '%s' for engine %s", language, variation, engine_entity_id)
+                    _LOGGER.info(
+                        "Language mapping: '%s' -> '%s' for engine %s",
+                        language,
+                        variation,
+                        engine_entity_id,
+                    )
                     return variation
 
             # If no variation found, log available languages for debugging
@@ -305,12 +373,14 @@ class VoiceReplayUploadView(HomeAssistantView):
                 "Language '%s' not found for engine %s. Supported languages: %s. Using original language.",
                 language,
                 engine_entity_id,
-                supported_langs
+                supported_langs,
             )
             return language
 
         except Exception as e:
-            _LOGGER.debug("Could not normalize language for %s: %s", engine_entity_id, e)
+            _LOGGER.debug(
+                "Could not normalize language for %s: %s", engine_entity_id, e
+            )
             return language
 
     async def _prepare_sonos_message(self, text: str, tts_entity: str) -> str:
@@ -342,7 +412,10 @@ class VoiceReplayUploadView(HomeAssistantView):
                 else:
                     announcement_text = "Attention"  # Default to English
 
-                _LOGGER.info("Using verbal announcement for Sonos preparation: %s", announcement_text)
+                _LOGGER.info(
+                    "Using verbal announcement for Sonos preparation: %s",
+                    announcement_text,
+                )
                 return f"{announcement_text}... {text}"
             else:  # announcement_mode == "silence"
                 # Try to use SSML for silence
@@ -350,7 +423,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 if state:
                     # Check if engine supports SSML (most modern TTS engines do)
                     supported_options = state.attributes.get("supported_options", [])
-                    supports_ssml = "ssml" in supported_options or "SSML" in str(state.attributes)
+                    supports_ssml = "ssml" in supported_options or "SSML" in str(
+                        state.attributes
+                    )
 
                     if supports_ssml or "piper" in tts_entity.lower():
                         # Use SSML to add 3 seconds of silence before the text
@@ -584,7 +659,7 @@ class VoiceReplayUploadView(HomeAssistantView):
             "audio/x-mpeg",
             "audio/x-mp3",
             "music",
-            "application/octet-stream"
+            "application/octet-stream",
         ]
 
         for sonos_type in sonos_content_types:
@@ -606,8 +681,12 @@ class VoiceReplayUploadView(HomeAssistantView):
                 return True
             except Exception as sonos_error:
                 # Handle specific UPnP errors
-                if "UPnP Error 701" in str(sonos_error) or "Transition not available" in str(sonos_error):
-                    _LOGGER.warning("Sonos transition error with %s: %s", sonos_type, sonos_error)
+                if "UPnP Error 701" in str(
+                    sonos_error
+                ) or "Transition not available" in str(sonos_error):
+                    _LOGGER.warning(
+                        "Sonos transition error with %s: %s", sonos_type, sonos_error
+                    )
                     _LOGGER.info("Retrying after clearing Sonos state...")
 
                     try:
@@ -619,6 +698,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                             blocking=True,
                         )
                         import asyncio
+
                         await asyncio.sleep(1.0)  # Longer delay for problematic state
 
                         # Retry the play command with this content type
@@ -632,10 +712,17 @@ class VoiceReplayUploadView(HomeAssistantView):
                             },
                             blocking=True,
                         )
-                        _LOGGER.info("Successfully played after Sonos state recovery with: %s", sonos_type)
+                        _LOGGER.info(
+                            "Successfully played after Sonos state recovery with: %s",
+                            sonos_type,
+                        )
                         return True
                     except Exception as retry_error:
-                        _LOGGER.error("Sonos retry with %s also failed: %s", sonos_type, retry_error)
+                        _LOGGER.error(
+                            "Sonos retry with %s also failed: %s",
+                            sonos_type,
+                            retry_error,
+                        )
                         continue  # Try next content type
                 else:
                     _LOGGER.warning(
@@ -839,13 +926,11 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
                     # Fallback - assume basic TTS is available
                     tts_services.append("speak")
 
-            return web.json_response(
-                {
-                    "available": len(tts_services) > 0,
-                    "services": tts_services,
-                    "default_service": "speak" if tts_services else None,
-                }
-            )
+            return web.json_response({
+                "available": len(tts_services) > 0,
+                "services": tts_services,
+                "default_service": "speak" if tts_services else None,
+            })
         except Exception as e:
             _LOGGER.error("Error getting TTS config: %s", e)
             return web.json_response({"available": False, "error": str(e)})

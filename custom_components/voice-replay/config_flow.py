@@ -66,7 +66,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
 
         # Build schema for engine selection
         data_schema = vol.Schema({
-            vol.Optional("tts_engine", default=current_tts_engine): selector.SelectSelector(
+            vol.Optional(
+                "tts_engine", default=current_tts_engine
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=tts_engines,
                     mode=selector.SelectSelectorMode.DROPDOWN,
@@ -120,7 +122,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             ]
 
         data_schema = vol.Schema({
-            vol.Optional("tts_language", default=current_language): selector.SelectSelector(
+            vol.Optional(
+                "tts_language", default=current_language
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=language_options,
                     mode=selector.SelectSelectorMode.DROPDOWN,
@@ -146,7 +150,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         # Get available voices for selected engine and language
         selected_engine = self._current_config.get("tts_engine", "auto")
         selected_language = self._current_config.get("tts_language", "de")
-        available_voices = await self._get_engine_voices_for_language(selected_engine, selected_language)
+        available_voices = await self._get_engine_voices_for_language(
+            selected_engine, selected_language
+        )
 
         # Get current voice setting
         current_voice = self.config_entry.options.get("tts_voice")
@@ -154,39 +160,57 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         data_schema_dict = {}
 
         if available_voices:
-            voice_options = [{"value": voice, "label": voice} for voice in available_voices]
-            data_schema_dict[vol.Optional("tts_voice", default=current_voice)] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=voice_options,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
+            voice_options = [
+                {"value": voice, "label": voice} for voice in available_voices
+            ]
+            data_schema_dict[vol.Optional("tts_voice", default=current_voice)] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=voice_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
                 )
             )
         else:
             # No voices available - show text input for manual entry
-            data_schema_dict[vol.Optional("tts_voice", default=current_voice or "")] = selector.TextSelector()
+            data_schema_dict[vol.Optional("tts_voice", default=current_voice or "")] = (
+                selector.TextSelector()
+            )
 
         # Add Sonos announcement options
-        current_sonos_mode = self.config_entry.options.get("sonos_announcement_mode", "silence")
+        current_sonos_mode = self.config_entry.options.get(
+            "sonos_announcement_mode", "silence"
+        )
 
         # Get localized option labels (fallback to English if translation not available)
-        locale = self.hass.config.language if hasattr(self.hass.config, 'language') else 'en'
+        locale = (
+            self.hass.config.language if hasattr(self.hass.config, "language") else "en"
+        )
 
-        if locale.startswith('de'):
+        if locale.startswith("de"):
             # German labels
             sonos_options = [
                 {"value": "silence", "label": "3 Sekunden Stille"},
                 {"value": "announcement", "label": "Sprachansage (Achtung...)"},
-                {"value": "disabled", "label": "Keine Ansage (schneller, aber möglicherweise abgeschnitten)"},
+                {
+                    "value": "disabled",
+                    "label": "Keine Ansage (schneller, aber möglicherweise abgeschnitten)",
+                },
             ]
         else:
             # English labels (default)
             sonos_options = [
                 {"value": "silence", "label": "3 second silence"},
                 {"value": "announcement", "label": "Verbal announcement (Achtung...)"},
-                {"value": "disabled", "label": "No announcement (faster but may cut off)"},
+                {
+                    "value": "disabled",
+                    "label": "No announcement (faster but may cut off)",
+                },
             ]
 
-        data_schema_dict[vol.Optional("sonos_announcement_mode", default=current_sonos_mode)] = selector.SelectSelector(
+        data_schema_dict[
+            vol.Optional("sonos_announcement_mode", default=current_sonos_mode)
+        ] = selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=sonos_options,
                 mode=selector.SelectSelectorMode.DROPDOWN,
@@ -202,7 +226,7 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             description_placeholders={
                 "engine": selected_engine,
                 "language": selected_language,
-                "voice_count": str(len(available_voices)) if available_voices else "0"
+                "voice_count": str(len(available_voices)) if available_voices else "0",
             },
         )
 
@@ -232,7 +256,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 return []
 
             # Method 1: Check for supported_languages attribute
-            languages = state.attributes.get("supported_languages") or state.attributes.get("languages")
+            languages = state.attributes.get(
+                "supported_languages"
+            ) or state.attributes.get("languages")
             if languages and isinstance(languages, (list, tuple)):
                 return list(languages)
 
@@ -248,11 +274,17 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                             piper_languages.append(lang_code)
                 if piper_languages:
                     # Debug logging to see what languages we found
-                    _LOGGER.info("Found Piper languages for %s: %s", engine_entity_id, piper_languages)
+                    _LOGGER.info(
+                        "Found Piper languages for %s: %s",
+                        engine_entity_id,
+                        piper_languages,
+                    )
                     return sorted(piper_languages)
 
             # Method 3: Check if voices attribute contains language info
-            voices = state.attributes.get("voices") or state.attributes.get("available_voices")
+            voices = state.attributes.get("voices") or state.attributes.get(
+                "available_voices"
+            )
             if voices and isinstance(voices, (list, tuple)):
                 # Try to extract unique languages from voice names
                 # Voice names might be like "de_DE-eva-low" or similar
@@ -264,7 +296,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                         if len(parts) > 0:
                             first_part = parts[0]
                             # Check if it looks like a language code
-                            if "_" in first_part or (len(first_part) == 2 and first_part.isalpha()):
+                            if "_" in first_part or (
+                                len(first_part) == 2 and first_part.isalpha()
+                            ):
                                 detected_languages.add(first_part)
                 if detected_languages:
                     return sorted(detected_languages)
@@ -273,7 +307,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             pass
         return []
 
-    async def _get_engine_voices_for_language(self, engine_entity_id: str, language: str) -> list[str]:
+    async def _get_engine_voices_for_language(
+        self, engine_entity_id: str, language: str
+    ) -> list[str]:
         """Get available voices for a TTS engine and specific language."""
         if engine_entity_id == "auto":
             return []
@@ -290,10 +326,14 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 return list(lang_voices)
 
             # Method 2: Check for general voices attribute and filter by language
-            all_voices = state.attributes.get("voices") or state.attributes.get("available_voices")
+            all_voices = state.attributes.get("voices") or state.attributes.get(
+                "available_voices"
+            )
             if all_voices and isinstance(all_voices, (list, tuple)):
                 # Try to filter voices that contain the language code
-                filtered_voices = [voice for voice in all_voices if language in voice.lower()]
+                filtered_voices = [
+                    voice for voice in all_voices if language in voice.lower()
+                ]
                 if filtered_voices:
                     return filtered_voices
                 # If no language-specific filtering worked, return all voices

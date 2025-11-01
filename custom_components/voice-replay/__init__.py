@@ -33,7 +33,9 @@ async def async_setup_entry(hass, entry) -> bool:
         "engine": entry.options.get("tts_engine", "auto"),
         "language": entry.options.get("tts_language", "de_DE"),
         "voice": entry.options.get("tts_voice"),
-        "sonos_announcement_mode": entry.options.get("sonos_announcement_mode", "silence"),
+        "sonos_announcement_mode": entry.options.get(
+            "sonos_announcement_mode", "silence"
+        ),
     }
     hass.data[DOMAIN]["tts_config"] = tts_config
 
@@ -50,7 +52,9 @@ async def async_setup_entry(hass, entry) -> bool:
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
-    _LOGGER.debug("Voice Replay integration set up successfully with TTS config: %s", tts_config)
+    _LOGGER.debug(
+        "Voice Replay integration set up successfully with TTS config: %s", tts_config
+    )
     return True
 
 
@@ -61,9 +65,10 @@ async def async_update_options(hass, entry) -> None:
         "engine": entry.options.get("tts_engine", "auto"),
         "language": entry.options.get("tts_language", "de_DE"),
         "voice": entry.options.get("tts_voice"),
-        "sonos_announcement_mode": entry.options.get("sonos_announcement_mode", "silence"),
+        "sonos_announcement_mode": entry.options.get(
+            "sonos_announcement_mode", "silence"
+        ),
     }
-    hass.data[DOMAIN]["tts_config"] = tts_config
     hass.data[DOMAIN]["tts_config"] = tts_config
     _LOGGER.debug("Updated TTS config: %s", tts_config)
 
