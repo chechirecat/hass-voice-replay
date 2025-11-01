@@ -173,17 +173,15 @@ update_manifest_version() {
 update_pyproject_version() {
     local new_version="$1"
     log_info "Updating pyproject.toml to version $new_version"
-
+    
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS sed
-        sed -i '' "s/version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
+        # macOS sed - only update project version, not tool config versions
+        sed -i '' "/^\[project\]/,/^\[/ s/^version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
     else
-        # Linux sed
-        sed -i "s/version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
+        # Linux sed - only update project version, not tool config versions  
+        sed -i "/^\[project\]/,/^\[/ s/^version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
     fi
-}
-
-# Update version in test.js
+}# Update version in test.js
 update_testjs_version() {
     local new_version="$1"
     log_info "Updating test.js to version $new_version"

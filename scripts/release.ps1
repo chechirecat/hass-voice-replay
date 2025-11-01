@@ -162,9 +162,10 @@ function Update-PyProjectVersion {
     Write-Info "Updating pyproject.toml to version $NewVersion"
 
     $content = Get-Content $PyProjectFile -Raw
-    $pattern = 'version\s*=\s*"[^"]*"'
+    # Only update version in [project] section, not tool configurations
+    $pattern = '(?<=\[project\][\s\S]*?)^version\s*=\s*"[^"]*"'
     $replacement = 'version = "' + $NewVersion + '"'
-    $content = $content -replace $pattern, $replacement
+    $content = $content -replace $pattern, $replacement, 1
     Set-Content $PyProjectFile $content -NoNewline
 }
 

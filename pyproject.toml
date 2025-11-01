@@ -65,7 +65,7 @@ preview = true
 
 [tool.ruff]
 line-length = 88
-target-version = "0.4.5"
+target-version = "py312"
 preview = true
 
 [tool.typos.default.extend-identifiers]

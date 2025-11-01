@@ -44,9 +44,20 @@ function Get-ManifestVersion {
 function Get-PyProjectVersion {
     if (Test-Path "pyproject.toml") {
         try {
-            $content = Get-Content "pyproject.toml" -Raw
-            if ($content -match 'version\s*=\s*"([^"]+)"') {
-                return $matches[1]
+            $lines = Get-Content "pyproject.toml"
+            $inProjectSection = $false
+            foreach ($line in $lines) {
+                if ($line -match '^\[project\]') {
+                    $inProjectSection = $true
+                    continue
+                }
+                if ($line -match '^\[' -and $line -notmatch '^\[project\]') {
+                    $inProjectSection = $false
+                    continue
+                }
+                if ($inProjectSection -and $line -match '^version\s*=\s*"([^"]+)"') {
+                    return $matches[1]
+                }
             }
         }
         catch {
