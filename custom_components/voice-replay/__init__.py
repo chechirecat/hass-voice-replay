@@ -37,6 +37,8 @@ async def async_setup_entry(hass, entry) -> bool:
         "sonos_announcement_mode": entry.options.get(
             "sonos_announcement_mode", "silence"
         ),
+        "volume_boost_enabled": entry.options.get("volume_boost_enabled", True),
+        "volume_boost_amount": entry.options.get("volume_boost_amount", 0.1),
     }
     hass.data[DOMAIN]["tts_config"] = tts_config
 
@@ -70,6 +72,8 @@ async def async_update_options(hass, entry) -> None:
         "sonos_announcement_mode": entry.options.get(
             "sonos_announcement_mode", "silence"
         ),
+        "volume_boost_enabled": entry.options.get("volume_boost_enabled", True),
+        "volume_boost_amount": entry.options.get("volume_boost_amount", 0.1),
     }
     hass.data[DOMAIN]["tts_config"] = tts_config
     _LOGGER.debug("Updated TTS config: %s", tts_config)

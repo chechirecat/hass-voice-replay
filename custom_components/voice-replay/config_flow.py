@@ -202,6 +202,25 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             )
         )
 
+        # Volume boost configuration
+        current_volume_enabled = self.config_entry.options.get("volume_boost_enabled", True)
+        current_volume_increase = self.config_entry.options.get("volume_boost_amount", 0.1)
+
+        data_schema_dict[
+            vol.Optional("volume_boost_enabled", default=current_volume_enabled)
+        ] = selector.BooleanSelector()
+
+        data_schema_dict[
+            vol.Optional("volume_boost_amount", default=current_volume_increase)
+        ] = selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0.05,
+                max=0.3,
+                step=0.05,
+                mode=selector.NumberSelectorMode.SLIDER,
+            )
+        )
+
         data_schema = vol.Schema(data_schema_dict)
 
         return self.async_show_form(
