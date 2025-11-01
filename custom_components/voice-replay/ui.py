@@ -989,7 +989,9 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
 
             # Check attribution for Wyoming/Piper
             attribution = state.attributes.get("attribution")
-            if attribution and ("wyoming" in attribution.lower() or "piper" in attribution.lower()):
+            if attribution and (
+                "wyoming" in attribution.lower() or "piper" in attribution.lower()
+            ):
                 return True
 
             return False

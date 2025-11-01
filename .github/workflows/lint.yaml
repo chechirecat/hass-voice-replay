@@ -30,11 +30,32 @@ jobs:
     steps:
       - name: "Checkout the repository"
         uses: "actions/checkout@v5"
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: "Lint"
         uses: astral-sh/ruff-action@v3
 
-      - name: "Check formatting"
+      - name: "Format code"
         uses: astral-sh/ruff-action@v3
         with:
-          args: "format --check --diff"
+          args: "format"
+
+      - name: "Check for formatting changes"
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Commit formatting changes"
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Auto-format code with ruff [skip ci]"
+          git push

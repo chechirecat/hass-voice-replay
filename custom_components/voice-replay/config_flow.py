@@ -148,7 +148,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             selected_voice = user_input.get("tts_voice")
             if selected_voice:
                 selected_engine = self._current_config.get("tts_engine", "auto")
-                available_speakers = await self._get_voice_speakers(selected_engine, selected_voice)
+                available_speakers = await self._get_voice_speakers(
+                    selected_engine, selected_voice
+                )
 
                 # Add validation warning if voice might not be available
                 available_voices = await self._get_engine_voices_for_language(
@@ -288,7 +290,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         # Get available speakers for selected voice
         selected_engine = self._current_config.get("tts_engine", "auto")
         selected_voice = self._current_config.get("tts_voice")
-        available_speakers = await self._get_voice_speakers(selected_engine, selected_voice)
+        available_speakers = await self._get_voice_speakers(
+            selected_engine, selected_voice
+        )
 
         # Get current speaker setting
         current_speaker = self.config_entry.options.get("tts_speaker")
@@ -309,9 +313,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             )
         else:
             # No speakers available - show text input for manual entry
-            data_schema_dict[vol.Optional("tts_speaker", default=current_speaker or "")] = (
-                selector.TextSelector()
-            )
+            data_schema_dict[
+                vol.Optional("tts_speaker", default=current_speaker or "")
+            ] = selector.TextSelector()
 
         # Add Sonos announcement options
         current_sonos_mode = self.config_entry.options.get(
@@ -362,7 +366,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             description_placeholders={
                 "engine": selected_engine,
                 "voice": selected_voice,
-                "speaker_count": str(len(available_speakers)) if available_speakers else "0",
+                "speaker_count": str(len(available_speakers))
+                if available_speakers
+                else "0",
             },
         )
 
@@ -400,7 +406,10 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
 
             # Method 2: For Piper TTS, check for voice attributes that indicate languages
             # Piper often has attributes like "voices_de_DE", "voices_en_US", etc.
-            if "piper" in engine_entity_id.lower() or "wyoming" in engine_entity_id.lower():
+            if (
+                "piper" in engine_entity_id.lower()
+                or "wyoming" in engine_entity_id.lower()
+            ):
                 piper_languages = []
                 for attr_name in state.attributes:
                     if attr_name.startswith("voices_"):
@@ -418,7 +427,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                     return sorted(piper_languages)
 
                 # Alternative method for Wyoming: check supported_languages
-                if hasattr(state, 'entity') and hasattr(state.entity, 'supported_languages'):
+                if hasattr(state, "entity") and hasattr(
+                    state.entity, "supported_languages"
+                ):
                     return list(state.entity.supported_languages)
 
                 # Check for voice information in supported_voices attribute
@@ -472,7 +483,10 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 return list(lang_voices)
 
             # Method 2: For Wyoming TTS entities, check supported_voices attribute
-            if "wyoming" in engine_entity_id.lower() or "piper" in engine_entity_id.lower():
+            if (
+                "wyoming" in engine_entity_id.lower()
+                or "piper" in engine_entity_id.lower()
+            ):
                 supported_voices = state.attributes.get("supported_voices")
                 if supported_voices and isinstance(supported_voices, dict):
                     # supported_voices might be {"en-US": [voice1, voice2], "de-DE": [...]}
@@ -482,7 +496,10 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
 
                     # Try alternative language formats
                     for lang_key in supported_voices:
-                        if language.lower() in lang_key.lower() or lang_key.lower() in language.lower():
+                        if (
+                            language.lower() in lang_key.lower()
+                            or lang_key.lower() in language.lower()
+                        ):
                             return list(supported_voices[lang_key])
 
                 # Check for Wyoming-style voice enumeration via async_get_supported_voices
@@ -548,7 +565,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         friendly_name = lang_map.get(lang_code, lang_code.upper())
         return f"{friendly_name} ({lang_code})"
 
-    async def _get_voice_speakers(self, engine_entity_id: str, voice_name: str) -> list[str]:
+    async def _get_voice_speakers(
+        self, engine_entity_id: str, voice_name: str
+    ) -> list[str]:
         """Get available speakers for a specific voice in a TTS engine."""
         if engine_entity_id == "auto" or not voice_name:
             return []
@@ -583,7 +602,10 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
 
             # Method 4: Check for voice-specific speaker mappings
             voice_speaker_mapping = state.attributes.get("voice_speakers", {})
-            if isinstance(voice_speaker_mapping, dict) and voice_name in voice_speaker_mapping:
+            if (
+                isinstance(voice_speaker_mapping, dict)
+                and voice_name in voice_speaker_mapping
+            ):
                 speakers = voice_speaker_mapping[voice_name]
                 if isinstance(speakers, (list, tuple)):
                     return list(speakers)
@@ -615,8 +637,13 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
 
         try:
             # For Wyoming TTS, check if the speaker is valid for the voice
-            if "wyoming" in engine_entity_id.lower() or "piper" in engine_entity_id.lower():
-                available_speakers = await self._get_voice_speakers(engine_entity_id, voice_name)
+            if (
+                "wyoming" in engine_entity_id.lower()
+                or "piper" in engine_entity_id.lower()
+            ):
+                available_speakers = await self._get_voice_speakers(
+                    engine_entity_id, voice_name
+                )
                 if available_speakers and speaker_name:
                     return speaker_name in available_speakers
                 # If no speakers listed but speaker provided, assume it might be valid
