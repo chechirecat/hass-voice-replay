@@ -145,8 +145,15 @@ check_repository_versions() {
         if [[ "$git_tag_version" == "$expected_version" ]]; then
             echo -e "  latest git tag: ${GREEN}v${git_tag_version}${NC}"
         else
-            echo -e "  latest git tag: ${RED}v${git_tag_version}${NC} (expected: v${expected_version})"
-            errors=$((errors + 1))
+            echo -e "  latest git tag: ${YELLOW}v${git_tag_version}${NC} (expected: v${expected_version})"
+            # During release commits, the tag hasn't been created yet, so this is not an error
+            # Only treat as error if the file versions are older than the latest tag
+            if [[ $(printf '%s\n' "$expected_version" "$git_tag_version" | sort -V | head -n1) == "$expected_version" ]]; then
+                echo -e "  ${RED}Error: File version ${expected_version} is older than latest tag v${git_tag_version}${NC}"
+                errors=$((errors + 1))
+            else
+                echo -e "  ${YELLOW}Note: Tag will be created during release process${NC}"
+            fi
         fi
     else
         echo -e "  ${YELLOW}No git tags found matching v*.*.* pattern${NC}"

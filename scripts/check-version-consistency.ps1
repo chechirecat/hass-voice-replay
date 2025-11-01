@@ -193,9 +193,21 @@ if (Test-Path "custom_components\voice-replay\manifest.json") {
 
 Write-ColorOutput "Target version: $primaryVersion" "Green"
 
-# Add git tag version (common to both repositories)
+# Add git tag version (common to both repositories) - but handle release commits
 if ($gitTagVersion) {
-    $foundVersions += @{ File = "git tag"; Version = $gitTagVersion; Path = "latest git tag (v$gitTagVersion)" }
+    if ($gitTagVersion -eq $primaryVersion) {
+        $foundVersions += @{ File = "git tag"; Version = $gitTagVersion; Path = "latest git tag (v$gitTagVersion)" }
+    } else {
+        # During release commits, the tag hasn't been created yet
+        # Only treat as error if the file versions are older than the latest tag
+        $versionComparison = [System.Version]::new($primaryVersion) -lt [System.Version]::new($gitTagVersion)
+        if ($versionComparison) {
+            Write-ColorOutput "Error: File version $primaryVersion is older than latest tag v$gitTagVersion" "Red"
+            $foundVersions += @{ File = "git tag"; Version = $gitTagVersion; Path = "latest git tag (v$gitTagVersion)" }
+        } else {
+            Write-ColorOutput "Note: Git tag v$gitTagVersion exists, v$primaryVersion will be tagged during release" "Yellow"
+        }
+    }
     if ($Verbose) { Write-ColorOutput "latest git tag version: $gitTagVersion" "Gray" }
 } else {
     if ($Verbose) { Write-ColorOutput "No git tags found matching v*.*.* pattern" "Gray" }
