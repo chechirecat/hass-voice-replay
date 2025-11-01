@@ -33,6 +33,7 @@ async def async_setup_entry(hass, entry) -> bool:
         "engine": entry.options.get("tts_engine", "auto"),
         "language": entry.options.get("tts_language", "de_DE"),
         "voice": entry.options.get("tts_voice"),
+        "speaker": entry.options.get("tts_speaker"),  # Add speaker support
         "sonos_announcement_mode": entry.options.get(
             "sonos_announcement_mode", "silence"
         ),
@@ -65,6 +66,7 @@ async def async_update_options(hass, entry) -> None:
         "engine": entry.options.get("tts_engine", "auto"),
         "language": entry.options.get("tts_language", "de_DE"),
         "voice": entry.options.get("tts_voice"),
+        "speaker": entry.options.get("tts_speaker"),  # Add speaker support
         "sonos_announcement_mode": entry.options.get(
             "sonos_announcement_mode", "silence"
         ),

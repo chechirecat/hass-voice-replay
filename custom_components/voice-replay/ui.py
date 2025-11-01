@@ -79,12 +79,14 @@ class VoiceReplayUploadView(HomeAssistantView):
             configured_engine = tts_config.get("engine", "auto")
             configured_language = tts_config.get("language", "de_DE")
             configured_voice = tts_config.get("voice")
+            configured_speaker = tts_config.get("speaker")  # Add speaker support
 
             _LOGGER.info(
-                "TTS request - Engine: %s, Language: %s, Voice: %s",
+                "TTS request - Engine: %s, Language: %s, Voice: %s, Speaker: %s",
                 configured_engine,
                 configured_language,
                 configured_voice,
+                configured_speaker,
             )
 
             # Determine which TTS engine to use
@@ -111,14 +113,15 @@ class VoiceReplayUploadView(HomeAssistantView):
                 )
 
             _LOGGER.info(
-                "Using TTS engine: %s for entity: %s (lang=%s, voice=%s)",
+                "Using TTS engine: %s for entity: %s (lang=%s, voice=%s, speaker=%s)",
                 tts_entity,
                 entity_id,
                 configured_language,
                 configured_voice,
+                configured_speaker,
             )
 
-            # Prepare options dict for voice selection
+            # Prepare options dict for voice and speaker selection (Wyoming Protocol compatible)
             options: dict | None = None
             if configured_voice:
                 # Validate requested voice against engine voices, if available
@@ -131,7 +134,34 @@ class VoiceReplayUploadView(HomeAssistantView):
                         available_voices,
                     )
                 else:
+                    # Start building options with the voice
                     options = {"voice": configured_voice}
+
+                    # Add speaker if configured (Wyoming Protocol)
+                    if configured_speaker:
+                        # Check if this is a Wyoming TTS entity that supports speakers
+                        if await self._is_wyoming_tts(tts_entity):
+                            options["speaker"] = configured_speaker
+                            _LOGGER.info(
+                                "Adding Wyoming Protocol speaker option: %s",
+                                configured_speaker,
+                            )
+                        else:
+                            # For non-Wyoming engines, some may still support speaker in voice name
+                            # Try combining voice and speaker (e.g., "voice_name-speaker_name")
+                            combined_voice = f"{configured_voice}-{configured_speaker}"
+                            if combined_voice in (available_voices or []):
+                                options["voice"] = combined_voice
+                                _LOGGER.info(
+                                    "Using combined voice-speaker name: %s",
+                                    combined_voice,
+                                )
+                            else:
+                                _LOGGER.warning(
+                                    "Speaker '%s' not supported by non-Wyoming engine %s, ignoring",
+                                    configured_speaker,
+                                    tts_entity,
+                                )
 
             # Normalize language for the engine
             normalized_language = configured_language
@@ -934,6 +964,37 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
         except Exception as e:
             _LOGGER.error("Error getting TTS config: %s", e)
             return web.json_response({"available": False, "error": str(e)})
+
+    async def _is_wyoming_tts(self, tts_entity_id: str) -> bool:
+        """Check if a TTS entity is Wyoming-based."""
+        try:
+            state = self.hass.states.get(tts_entity_id)
+            if not state:
+                return False
+
+            # Check if it's explicitly a Wyoming entity
+            if "wyoming" in tts_entity_id.lower():
+                return True
+
+            # Check if it has Wyoming-specific attributes
+            supported_options = state.attributes.get("supported_options", [])
+            if "speaker" in supported_options:
+                return True
+
+            # Check for Wyoming-style integration or platform
+            integration = state.attributes.get("integration")
+            platform = state.attributes.get("platform")
+            if integration == "wyoming" or platform == "wyoming":
+                return True
+
+            # Check attribution for Wyoming/Piper
+            attribution = state.attributes.get("attribution")
+            if attribution and ("wyoming" in attribution.lower() or "piper" in attribution.lower()):
+                return True
+
+            return False
+        except Exception:
+            return False
 
 
 def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:

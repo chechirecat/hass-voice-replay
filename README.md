@@ -123,6 +123,32 @@ curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
 - 💡 **[Request Features](https://github.com/chechirecat/hass-voice-replay/discussions)** - Have an idea? Share it!
 - 📖 **[Development Guide](docs/DEVELOPMENT.md)** - Detailed troubleshooting and API documentation
 
+## Changelog
+
+### Version 0.5.0 - Wyoming Protocol Compatibility
+
+🎯 **Enhanced TTS Configuration with Wyoming Protocol Support**
+
+- **🔊 Separated Voice and Speaker Configuration**: Following Wyoming Protocol patterns, voice and speaker selection are now handled separately for better compatibility with Piper TTS and other Wyoming-based engines
+- **🎤 Enhanced Voice Detection**: Improved detection logic for Wyoming TTS entities with support for both Piper and other Wyoming implementations
+- **⚙️ Protocol-Aware TTS Calls**: Automatic detection of Wyoming TTS entities with proper voice/speaker parameter formatting
+- **🔧 Multi-Step Configuration Flow**: New configuration steps for voice and speaker selection with validation
+- **✅ Voice-Speaker Validation**: Built-in validation of voice-speaker combinations to prevent configuration errors
+- **🌐 Better Language Support**: Enhanced language format detection supporting various formats (de_DE, de-DE, de)
+- **📚 Comprehensive Documentation**: Added Wyoming Protocol compatibility documentation
+
+**Wyoming Protocol Benefits:**
+- Perfect compatibility with Piper TTS voices and speakers
+- Proper handling of multi-speaker voice models
+- Future-proof configuration for Home Assistant's Assistant pipeline
+- Better error handling and user feedback
+
+### Previous Versions
+
+- **0.4.7**: Improved TTS engine detection and voice configuration
+- **0.4.x**: Enhanced media player compatibility and Sonos support
+- **0.3.x**: Core voice recording and TTS functionality
+
 ## Development
 
 **🛠️ [Development Guide →](docs/DEVELOPMENT.md)** - Complete setup, architecture, and contribution guide

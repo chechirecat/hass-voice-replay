@@ -33,14 +33,28 @@
         "title": "Voice Selection",
         "description": "Select voice for Text-to-Speech.\n\nEngine: **{engine}**\nLanguage: **{language}**\nAvailable voices: **{voice_count}**",
         "data": {
-          "tts_voice": "Voice",
+          "tts_voice": "Voice"
+        },
+        "data_description": {
+          "tts_voice": "Choose a specific voice for the selected language, or leave empty for engine default"
+        }
+      },
+      "speaker": {
+        "title": "Speaker Selection",
+        "description": "Select speaker for multi-speaker voices.\n\nEngine: **{engine}**\nVoice: **{voice}**\nAvailable speakers: **{speaker_count}**",
+        "data": {
+          "tts_speaker": "Speaker",
           "sonos_announcement_mode": "Sonos Speaker Preparation"
         },
         "data_description": {
-          "tts_voice": "Choose a specific voice for the selected language, or leave empty for engine default",
+          "tts_speaker": "Choose a specific speaker for voices that support multiple speakers (common with Wyoming/Piper TTS), or leave empty for default",
           "sonos_announcement_mode": "How to prepare Sonos speakers before TTS playback to prevent audio cutoff"
         }
       }
+    },
+    "error": {
+      "voice_not_available": "The selected voice is not available for this TTS engine. Please choose a different voice or check your TTS configuration.",
+      "speaker_not_available": "The selected speaker is not available for this voice. Please choose a different speaker or leave empty for default."
     }
   },
   "services": {
