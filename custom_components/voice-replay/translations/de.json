@@ -16,13 +16,17 @@
           "tts_engine": "TTS Engine",
           "tts_language": "Sprache",
           "tts_voice_combined": "Stimme & Sprecher",
-          "sonos_announcement_mode": "Sonos Lautsprecher Vorbereitung"
+          "volume_boost_enabled": "Lautstärkeanhebung aktivieren",
+          "volume_boost_amount": "Lautstärkeanhebungsbetrag",
+          "prepend_silence_seconds": "Sekunden Stille voranstellen"
         },
         "data_description": {
           "tts_engine": "Wählen Sie die TTS Engine für die Sprachwiedergabe. Wählen Sie 'Automatisch erkennen' um automatisch eine verfügbare Engine zu finden.",
           "tts_language": "Wählen Sie die Sprache für die Text-zu-Sprache Ausgabe",
           "tts_voice_combined": "Wählen Sie eine Stimme und Sprecher Kombination. Wird als 'Sprecher Name (Qualität)' für einfache Auswahl angezeigt.",
-          "sonos_announcement_mode": "Wie Sonos Lautsprecher vor der TTS-Wiedergabe vorbereitet werden, um Abschneiden des Audios zu verhindern"
+          "volume_boost_enabled": "Aktivieren Sie diese Option, um die Lautstärkeanhebung zu aktivieren.",
+          "volume_boost_amount": "Legen Sie den Betrag der Lautstärkeanhebung fest (z. B. 0,1 für 10 % Erhöhung).",
+          "prepend_silence_seconds": "Geben Sie die Anzahl der Sekunden Stille an, die vor der TTS-Wiedergabe eingefügt werden sollen, um Audioabschneidungen zu verhindern."
         }
       }
     },

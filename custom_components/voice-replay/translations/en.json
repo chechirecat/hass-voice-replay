@@ -16,13 +16,17 @@
           "tts_engine": "TTS Engine",
           "tts_language": "Language",
           "tts_voice_combined": "Voice & Speaker",
-          "sonos_announcement_mode": "Sonos Speaker Preparation"
+          "volume_boost_enabled": "Enable Volume Boost",
+          "volume_boost_amount": "Volume Boost Amount",
+          "prepend_silence_seconds": "Prepend Silence Seconds"
         },
         "data_description": {
           "tts_engine": "Select the TTS engine to use for voice playback. Choose 'Auto-detect' to automatically find an available engine.",
           "tts_language": "Select the language for text-to-speech output",
           "tts_voice_combined": "Choose a voice and speaker combination. Displays as 'Speaker Name (quality)' for easy selection.",
-          "sonos_announcement_mode": "How to prepare Sonos speakers before TTS playback to prevent audio cutoff"
+          "volume_boost_enabled": "Enable this option to turn on volume boosting.",
+          "volume_boost_amount": "Set the amount of volume boost (e.g., 0.1 for 10% increase).",
+          "prepend_silence_seconds": "Specify the number of seconds of silence to prepend before TTS playback to prevent audio cutoffs."
         }
       }
     },

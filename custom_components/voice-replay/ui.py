@@ -17,8 +17,6 @@ UPLOAD_URL = f"/api/{DOMAIN}/upload"
 UPLOAD_NAME = f"api:{DOMAIN}:upload"
 MEDIA_PLAYERS_URL = f"/api/{DOMAIN}/media_players"
 MEDIA_PLAYERS_NAME = f"api:{DOMAIN}:media_players"
-MEDIA_URL = f"/api/{DOMAIN}/media"
-MEDIA_NAME = f"api:{DOMAIN}:media"
 TTS_CONFIG_URL = f"/api/{DOMAIN}/tts_config"
 TTS_CONFIG_NAME = f"api:{DOMAIN}:tts_config"
 
@@ -431,70 +429,27 @@ class VoiceReplayUploadView(HomeAssistantView):
             return language
 
     async def _prepare_sonos_message(self, text: str, tts_entity: str) -> str:
-        """Prepare TTS message for Sonos with silence or announcement."""
+        """Prepare TTS message for Sonos with silence via SSML if supported."""
         try:
-            # Get the configured announcement mode
-            tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
-            announcement_mode = tts_config.get("sonos_announcement_mode", "silence")
-
-            _LOGGER.info("Preparing Sonos message with mode: %s", announcement_mode)
-
-            if announcement_mode == "disabled":
-                # No modification needed
-                return text
-            elif announcement_mode == "announcement":
-                # Add a verbal announcement with natural pause
-                # Use language-appropriate announcement text
-                tts_language = tts_config.get("language", "de_DE").lower()
-                if "de" in tts_language:
-                    announcement_text = "Achtung"
-                elif "en" in tts_language:
-                    announcement_text = "Attention"
-                elif "fr" in tts_language:
-                    announcement_text = "Attention"
-                elif "es" in tts_language:
-                    announcement_text = "Atención"
-                elif "it" in tts_language:
-                    announcement_text = "Attenzione"
-                else:
-                    announcement_text = "Attention"  # Default to English
-
-                _LOGGER.info(
-                    "Using verbal announcement for Sonos preparation: %s",
-                    announcement_text,
+            # Try to use SSML for silence if the TTS engine supports it
+            state = self.hass.states.get(tts_entity)
+            if state:
+                # Check if engine supports SSML (most modern TTS engines do)
+                supported_options = state.attributes.get("supported_options", [])
+                supports_ssml = "ssml" in supported_options or "SSML" in str(
+                    state.attributes
                 )
-                return f"{announcement_text}... {text}"
-            else:  # announcement_mode == "silence"
-                # Try to use SSML for silence
-                state = self.hass.states.get(tts_entity)
-                if state:
-                    # Check if engine supports SSML (most modern TTS engines do)
-                    supported_options = state.attributes.get("supported_options", [])
-                    supports_ssml = "ssml" in supported_options or "SSML" in str(
-                        state.attributes
-                    )
 
-                    if supports_ssml or "piper" in tts_entity.lower():
-                        # Use SSML to add 3 seconds of silence before the text
-                        _LOGGER.info("Using SSML silence for Sonos preparation")
-                        return f'<speak><break time="3s"/>{text}</speak>'
+                if supports_ssml or "piper" in tts_entity.lower():
+                    # Use SSML to add 3 seconds of silence before the text
+                    _LOGGER.info("Using SSML silence for Sonos preparation")
+                    return f'<speak><break time="3s"/>{text}</speak>'
 
-                # Fallback to verbal announcement if SSML not supported
-                _LOGGER.info("SSML not supported, falling back to verbal announcement")
-                tts_language = tts_config.get("language", "de_DE").lower()
-                if "de" in tts_language:
-                    announcement_text = "Achtung"
-                elif "en" in tts_language:
-                    announcement_text = "Attention"
-                elif "fr" in tts_language:
-                    announcement_text = "Attention"
-                elif "es" in tts_language:
-                    announcement_text = "Atención"
-                elif "it" in tts_language:
-                    announcement_text = "Attenzione"
-                else:
-                    announcement_text = "Attention"  # Default to English
-                return f"{announcement_text}... {text}"
+            # No SSML support - return text as-is (silence will be handled at conversion level)
+            _LOGGER.info(
+                "No SSML support, using original text (silence handled at conversion)"
+            )
+            return text
 
         except Exception as e:
             _LOGGER.warning("Could not prepare Sonos message, using original: %s", e)
@@ -698,7 +653,20 @@ class VoiceReplayUploadView(HomeAssistantView):
             if shutil.which("ffmpeg"):
                 try:
                     mp3_temp_path = temp_path.replace(".mp3", "_converted.mp3")
-                    # Enhanced FFmpeg parameters to prevent audio artifacts and clicks
+
+                    # Read silence prepend configuration from integration options (seconds)
+                    tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
+                    prepend_silence_seconds = tts_config.get(
+                        "prepend_silence_seconds", 3
+                    )
+                    silence_ms = int(
+                        prepend_silence_seconds * 1000
+                    )  # Convert to milliseconds
+
+                    # Use adelay to prepend silence so the player's warm-up delay doesn't drop recording content.
+                    # Use :all=1 to apply to all channels when supported; fallback to single value is handled by ffmpeg.
+                    afilter = f"adelay={silence_ms}:all=1,aresample=44100"
+
                     command = [
                         "ffmpeg",
                         "-hide_banner",
@@ -706,22 +674,16 @@ class VoiceReplayUploadView(HomeAssistantView):
                         "error",
                         "-i",
                         temp_path,
-                        "-ss",
-                        "0.5",  # Skip first 0.5 seconds
                         "-af",
-                        "afade=in:st=0:d=0.3,volume=1.4,aresample=44100",  # Fade in + normalize + resample
+                        afilter,
                         "-ar",
                         "44100",  # Standard sample rate
                         "-ac",
                         "2",  # Stereo output
                         "-b:a",
-                        "128k",  # Consistent bitrate to prevent artifacts
+                        "128k",  # Consistent bitrate
                         "-f",
                         "mp3",
-                        "-avoid_negative_ts",
-                        "make_zero",  # Fix timing issues
-                        "-fflags",
-                        "+genpts",  # Generate proper timestamps
                         "-y",  # Overwrite output file
                         mp3_temp_path,
                     ]
@@ -735,10 +697,13 @@ class VoiceReplayUploadView(HomeAssistantView):
                     _LOGGER.debug("FFmpeg conversion stdout: %s", result.stdout)
                     _LOGGER.debug("FFmpeg conversion stderr: %s", result.stderr)
 
+                    # Replace original file with converted file (now with leading silence)
                     os.remove(temp_path)
                     os.rename(mp3_temp_path, temp_path)
                     _LOGGER.info(
-                        "Successfully converted WebM to MP3 with anti-click enhancement"
+                        "Successfully converted WebM to MP3 and prepended %s seconds (%sms) of silence",
+                        prepend_silence_seconds,
+                        silence_ms,
                     )
                     return "audio/mpeg"
                 except (subprocess.CalledProcessError, Exception) as e:
@@ -861,12 +826,12 @@ class VoiceReplayUploadView(HomeAssistantView):
                     new_state.attributes.get("media_content_id"),
                 )
 
-            # Check if playback actually started
-            if new_state and new_state.state in ["playing", "buffering"]:
+            # Check if playback actually started by comparing media_content_id
+            if new_state and media_content_id in str(new_state.attributes.get("media_content_id", "")):
                 _LOGGER.info("Media source playback successful!")
             else:
                 _LOGGER.warning(
-                    "Media source playback failed, trying direct HTTP serving..."
+                    "Media source playback failed (content didn't change), trying direct HTTP serving..."
                 )
                 await self._play_with_direct_serving(
                     entity_id, file_path, original_volume
@@ -926,26 +891,12 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         filename = os.path.basename(file_path)
 
-        # Store file path for serving
-        self.hass.data.setdefault(DOMAIN, {})
-        self.hass.data[DOMAIN][filename] = file_path
-
-        # Create direct URL - try both built-in HA media serving and our custom endpoint
+        # Create direct URL using Home Assistant's built-in media serving
         external_url = self.hass.config.external_url or "http://localhost:8123"
-
-        # Try Home Assistant's built-in media serving first (more reliable)
         builtin_media_url = f"{external_url}/media/local/{filename}"
-        custom_media_url = f"{external_url}/api/{DOMAIN}/media/{filename}"
 
         _LOGGER.info("Playing audio via direct HTTP serving")
         _LOGGER.info("Built-in HA media URL: %s", builtin_media_url)
-        _LOGGER.info("Custom endpoint URL: %s", custom_media_url)
-        _LOGGER.info(
-            "File stored for serving - filename: %s -> path: %s", filename, file_path
-        )
-        _LOGGER.info("You can manually test these URLs:")
-        _LOGGER.info("  1. Built-in HA: %s", builtin_media_url)
-        _LOGGER.info("  2. Custom endpoint: %s", custom_media_url)
 
         # Determine content type
         if filename.endswith(".mp3"):
@@ -1277,97 +1228,10 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
             return web.json_response({"available": False, "error": str(e)})
 
 
-class VoiceReplayMediaView(HomeAssistantView):
-    """Serve audio files for fallback HTTP serving."""
-
-    url = f"{MEDIA_URL}/{{filename}}"
-    name = MEDIA_NAME
-    requires_auth = False  # Allow unauthenticated access for media players
-
-    def __init__(self, hass: HomeAssistant) -> None:
-        super().__init__()
-        self.hass = hass
-
-    async def get(
-        self, request: web.Request, filename: str | None = None
-    ) -> web.Response:
-        """Serve audio file.
-
-        Home Assistant sometimes dispatches path params as keyword args
-        (request, filename=...), so accept filename as kwarg and
-        fall back to request.match_info when not provided.
-        """
-        if filename is None:
-            filename = request.match_info.get("filename")
-
-        if not filename:
-            _LOGGER.warning("No filename provided in request")
-            return web.Response(status=404)
-
-        _LOGGER.info("HTTP request for media file: %s", filename)
-
-        # Get file path from stored data
-        file_path = self.hass.data.get(DOMAIN, {}).get(filename)
-        if not file_path:
-            _LOGGER.warning("File path not found for filename: %s", filename)
-            _LOGGER.debug(
-                "Available files in storage: %s",
-                list(self.hass.data.get(DOMAIN, {}).keys()),
-            )
-            return web.Response(status=404)
-
-        _LOGGER.info("Serving file from path: %s", file_path)
-
-        try:
-            import asyncio
-            import os
-
-            if not os.path.exists(file_path):
-                _LOGGER.warning("File does not exist at path: %s", file_path)
-                return web.Response(status=404)
-
-            # Use async file reading to avoid blocking
-            def read_file():
-                with open(file_path, "rb") as f:
-                    return f.read()
-
-            content = await asyncio.get_event_loop().run_in_executor(None, read_file)
-            _LOGGER.info(
-                "Successfully read %d bytes from file: %s", len(content), filename
-            )
-
-            # Determine content type from file extension
-            content_type = "audio/webm"  # default
-            if filename.endswith(".m4a"):
-                content_type = "audio/mp4"
-            elif filename.endswith(".mp3"):
-                content_type = "audio/mpeg"
-            elif filename.endswith(".wav"):
-                content_type = "audio/wav"
-            elif filename.endswith(".webm"):
-                content_type = "audio/webm"
-
-            _LOGGER.info("Serving file with content type: %s", content_type)
-
-            return web.Response(
-                body=content,
-                content_type=content_type,
-                headers={
-                    "Content-Disposition": f'inline; filename="{filename}"',
-                    "Accept-Ranges": "bytes",
-                    "Cache-Control": "no-cache",
-                },
-            )
-        except Exception as e:
-            _LOGGER.error("Error serving media file %s: %s", filename, e, exc_info=True)
-            return web.Response(status=500)
-
-
 def register_ui_view(hass: HomeAssistant, target_url: str = None) -> None:
     """Register the API views for backend functionality."""
     hass.http.register_view(VoiceReplayUploadView(hass))
     hass.http.register_view(VoiceReplayMediaPlayersView(hass))
-    hass.http.register_view(VoiceReplayMediaView(hass))
     hass.http.register_view(VoiceReplayTTSConfigView(hass))
 
     _LOGGER.debug("API views registered - frontend card is in separate repository")

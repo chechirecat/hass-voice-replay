@@ -92,9 +92,6 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         current_language = self.config_entry.options.get("tts_language", "de_DE")
         current_voice = self.config_entry.options.get("tts_voice")
         current_speaker = self.config_entry.options.get("tts_speaker")
-        current_sonos_mode = self.config_entry.options.get(
-            "sonos_announcement_mode", "silence"
-        )
 
         # Get available options
         tts_engines = await self._get_tts_engines()
@@ -170,38 +167,6 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             ] = selector.TextSelector()
 
         # Sonos announcement options
-        locale = (
-            self.hass.config.language if hasattr(self.hass.config, "language") else "en"
-        )
-
-        if locale.startswith("de"):
-            sonos_options = [
-                {"value": "silence", "label": "3 Sekunden Stille"},
-                {"value": "announcement", "label": "Sprachansage (Achtung...)"},
-                {
-                    "value": "disabled",
-                    "label": "Keine Ansage (schneller, aber möglicherweise abgeschnitten)",
-                },
-            ]
-        else:
-            sonos_options = [
-                {"value": "silence", "label": "3 second silence"},
-                {"value": "announcement", "label": "Verbal announcement (Achtung...)"},
-                {
-                    "value": "disabled",
-                    "label": "No announcement (faster but may cut off)",
-                },
-            ]
-
-        data_schema_dict[
-            vol.Optional("sonos_announcement_mode", default=current_sonos_mode)
-        ] = selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=sonos_options,
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        )
-
         # Volume boost configuration
         current_volume_enabled = self.config_entry.options.get(
             "volume_boost_enabled", True
@@ -222,6 +187,22 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 max=0.3,
                 step=0.05,
                 mode=selector.NumberSelectorMode.SLIDER,
+            )
+        )
+
+        # Recording silence prepend configuration
+        current_prepend_silence = self.config_entry.options.get(
+            "prepend_silence_seconds", 3
+        )
+
+        data_schema_dict[
+            vol.Optional("prepend_silence_seconds", default=current_prepend_silence)
+        ] = selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=10,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
             )
         )
 

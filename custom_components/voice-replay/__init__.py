@@ -69,11 +69,9 @@ async def async_setup_entry(hass, entry) -> bool:
         "language": entry.options.get("tts_language", "de_DE"),
         "voice": entry.options.get("tts_voice"),
         "speaker": entry.options.get("tts_speaker"),  # Add speaker support
-        "sonos_announcement_mode": entry.options.get(
-            "sonos_announcement_mode", "silence"
-        ),
         "volume_boost_enabled": entry.options.get("volume_boost_enabled", True),
         "volume_boost_amount": entry.options.get("volume_boost_amount", 0.1),
+        "prepend_silence_seconds": entry.options.get("prepend_silence_seconds", 3),
     }
     hass.data[DOMAIN]["tts_config"] = tts_config
 
@@ -104,11 +102,9 @@ async def async_update_options(hass, entry) -> None:
         "language": entry.options.get("tts_language", "de_DE"),
         "voice": entry.options.get("tts_voice"),
         "speaker": entry.options.get("tts_speaker"),  # Add speaker support
-        "sonos_announcement_mode": entry.options.get(
-            "sonos_announcement_mode", "silence"
-        ),
         "volume_boost_enabled": entry.options.get("volume_boost_enabled", True),
         "volume_boost_amount": entry.options.get("volume_boost_amount", 0.1),
+        "prepend_silence_seconds": entry.options.get("prepend_silence_seconds", 3),
     }
     hass.data[DOMAIN]["tts_config"] = tts_config
     _LOGGER.debug("Updated TTS config: %s", tts_config)
