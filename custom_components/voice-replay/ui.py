@@ -82,7 +82,9 @@ class VoiceReplayUploadView(HomeAssistantView):
             # Store original volume if volume boost is enabled
             original_volume = None
             if volume_boost_enabled:
-                original_volume = await self._store_and_boost_volume(entity_id, volume_boost_amount)
+                original_volume = await self._store_and_boost_volume(
+                    entity_id, volume_boost_amount
+                )
 
             # Get configured settings
             configured_engine = tts_config.get("engine", "auto")
@@ -238,7 +240,9 @@ class VoiceReplayUploadView(HomeAssistantView):
 
             # Schedule volume restoration if volume boost was enabled
             if volume_boost_enabled and original_volume is not None:
-                await self._schedule_volume_restore(entity_id, original_volume, is_sonos)
+                await self._schedule_volume_restore(
+                    entity_id, original_volume, is_sonos
+                )
 
             # For Sonos, schedule restoration after a delay
             if is_sonos:
@@ -496,13 +500,17 @@ class VoiceReplayUploadView(HomeAssistantView):
             _LOGGER.warning("Could not prepare Sonos message, using original: %s", e)
             return text
 
-    async def _store_and_boost_volume(self, entity_id: str, volume_boost_amount: float) -> float | None:
+    async def _store_and_boost_volume(
+        self, entity_id: str, volume_boost_amount: float
+    ) -> float | None:
         """Store current volume and increase it by the specified amount."""
         try:
             # Get current media player state
             state = self.hass.states.get(entity_id)
             if not state:
-                _LOGGER.warning("Media player %s not found for volume control", entity_id)
+                _LOGGER.warning(
+                    "Media player %s not found for volume control", entity_id
+                )
                 return None
 
             # Get current volume level
@@ -516,8 +524,13 @@ class VoiceReplayUploadView(HomeAssistantView):
             # Calculate new volume (ensure it doesn't exceed 1.0)
             new_volume = min(current_volume + volume_boost_amount, 1.0)
 
-            _LOGGER.info("Increasing volume for %s from %.2f to %.2f (+%.2f)",
-                        entity_id, current_volume, new_volume, volume_boost_amount)
+            _LOGGER.info(
+                "Increasing volume for %s from %.2f to %.2f (+%.2f)",
+                entity_id,
+                current_volume,
+                new_volume,
+                volume_boost_amount,
+            )
 
             # Set the new volume
             await self.hass.services.async_call(
@@ -537,7 +550,9 @@ class VoiceReplayUploadView(HomeAssistantView):
             _LOGGER.error("Failed to boost volume for %s: %s", entity_id, e)
             return None
 
-    async def _schedule_volume_restore(self, entity_id: str, original_volume: float, is_sonos: bool = False) -> None:
+    async def _schedule_volume_restore(
+        self, entity_id: str, original_volume: float, is_sonos: bool = False
+    ) -> None:
         """Schedule volume restoration after TTS playback."""
         import asyncio
 
@@ -548,7 +563,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         async def restore_volume():
             await asyncio.sleep(delay)
             try:
-                _LOGGER.info("Restoring volume for %s to %.2f", entity_id, original_volume)
+                _LOGGER.info(
+                    "Restoring volume for %s to %.2f", entity_id, original_volume
+                )
                 await self.hass.services.async_call(
                     "media_player",
                     "volume_set",
@@ -560,7 +577,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 )
                 _LOGGER.info("Volume restored successfully for %s", entity_id)
             except Exception as restore_error:
-                _LOGGER.warning("Could not restore volume for %s: %s", entity_id, restore_error)
+                _LOGGER.warning(
+                    "Could not restore volume for %s: %s", entity_id, restore_error
+                )
 
         self.hass.async_create_task(restore_volume())
 
@@ -615,10 +634,14 @@ class VoiceReplayUploadView(HomeAssistantView):
         # Store original volume if volume boost is enabled
         original_volume = None
         if volume_boost_enabled:
-            original_volume = await self._store_and_boost_volume(entity_id, volume_boost_amount)
+            original_volume = await self._store_and_boost_volume(
+                entity_id, volume_boost_amount
+            )
 
         # Play the audio
-        await self._play_audio(entity_id, media_url, final_content_type, temp_path, original_volume)
+        await self._play_audio(
+            entity_id, media_url, final_content_type, temp_path, original_volume
+        )
 
         return web.json_response({"status": "success", "message": "Playing audio"})
 
@@ -698,7 +721,12 @@ class VoiceReplayUploadView(HomeAssistantView):
         self.hass.async_create_task(cleanup_temp_file())
 
     async def _play_audio(
-        self, entity_id: str, media_url: str, final_content_type: str, temp_path: str, original_volume: float | None = None
+        self,
+        entity_id: str,
+        media_url: str,
+        final_content_type: str,
+        temp_path: str,
+        original_volume: float | None = None,
     ) -> None:
         """Play audio on the specified media player."""
         external_url = self.hass.config.external_url or "http://localhost:8123"
@@ -715,7 +743,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         )
 
         if is_sonos:
-            await self._handle_sonos_playback(entity_id, full_media_url, temp_path, original_volume)
+            await self._handle_sonos_playback(
+                entity_id, full_media_url, temp_path, original_volume
+            )
         else:
             # For non-Sonos players, use standard approach
             await self.hass.services.async_call(
@@ -734,7 +764,11 @@ class VoiceReplayUploadView(HomeAssistantView):
                 await self._schedule_volume_restore(entity_id, original_volume, False)
 
     async def _handle_sonos_playback(
-        self, entity_id: str, full_media_url: str, temp_path: str, original_volume: float | None = None
+        self,
+        entity_id: str,
+        full_media_url: str,
+        temp_path: str,
+        original_volume: float | None = None,
     ) -> None:
         """Handle Sonos-specific playback with snapshot/restore."""
         # Create snapshot
@@ -857,7 +891,9 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         return False
 
-    async def _schedule_sonos_restore(self, entity_id: str, temp_path: str, original_volume: float | None = None) -> None:
+    async def _schedule_sonos_restore(
+        self, entity_id: str, temp_path: str, original_volume: float | None = None
+    ) -> None:
         """Schedule Sonos state restoration based on audio duration."""
         import asyncio
         import os
@@ -903,7 +939,10 @@ class VoiceReplayUploadView(HomeAssistantView):
                             # Also restore volume if needed
                             if original_volume is not None:
                                 try:
-                                    _LOGGER.info("Restoring Sonos volume to %.2f", original_volume)
+                                    _LOGGER.info(
+                                        "Restoring Sonos volume to %.2f",
+                                        original_volume,
+                                    )
                                     await self.hass.services.async_call(
                                         "media_player",
                                         "volume_set",
@@ -915,7 +954,10 @@ class VoiceReplayUploadView(HomeAssistantView):
                                     )
                                     _LOGGER.info("Sonos volume restored successfully")
                                 except Exception as volume_error:
-                                    _LOGGER.warning("Could not restore Sonos volume: %s", volume_error)
+                                    _LOGGER.warning(
+                                        "Could not restore Sonos volume: %s",
+                                        volume_error,
+                                    )
 
                         except Exception as restore_error:
                             _LOGGER.warning(
@@ -931,7 +973,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         except Exception as schedule_error:
             _LOGGER.warning("Could not schedule Sonos restore: %s", schedule_error)
 
-    async def _schedule_fallback_restore(self, entity_id: str, original_volume: float | None = None) -> None:
+    async def _schedule_fallback_restore(
+        self, entity_id: str, original_volume: float | None = None
+    ) -> None:
         """Schedule Sonos restore with fixed delay as fallback."""
         import asyncio
 
@@ -949,7 +993,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 # Also restore volume if needed
                 if original_volume is not None:
                     try:
-                        _LOGGER.info("Restoring Sonos volume to %.2f (fallback)", original_volume)
+                        _LOGGER.info(
+                            "Restoring Sonos volume to %.2f (fallback)", original_volume
+                        )
                         await self.hass.services.async_call(
                             "media_player",
                             "volume_set",
@@ -961,7 +1007,10 @@ class VoiceReplayUploadView(HomeAssistantView):
                         )
                         _LOGGER.info("Sonos volume restored successfully (fallback)")
                     except Exception as volume_error:
-                        _LOGGER.warning("Could not restore Sonos volume (fallback): %s", volume_error)
+                        _LOGGER.warning(
+                            "Could not restore Sonos volume (fallback): %s",
+                            volume_error,
+                        )
 
             except Exception as restore_error:
                 _LOGGER.warning("Could not restore Sonos state: %s", restore_error)

@@ -203,8 +203,12 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
         # Volume boost configuration
-        current_volume_enabled = self.config_entry.options.get("volume_boost_enabled", True)
-        current_volume_increase = self.config_entry.options.get("volume_boost_amount", 0.1)
+        current_volume_enabled = self.config_entry.options.get(
+            "volume_boost_enabled", True
+        )
+        current_volume_increase = self.config_entry.options.get(
+            "volume_boost_amount", 0.1
+        )
 
         data_schema_dict[
             vol.Optional("volume_boost_enabled", default=current_volume_enabled)
