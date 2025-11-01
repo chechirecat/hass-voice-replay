@@ -13,33 +13,31 @@ _LOGGER = logging.getLogger(__name__)
 
 def _ensure_media_folder(hass) -> str:
     """Ensure the voice recordings media folder exists and return its path."""
-    media_path = hass.config.path("media", "local", "voice-recordings")
+    # /media/local URL maps to /media filesystem path, so use /media directly
+    media_path = "/media"
+    # Don't create subdirectories - files go directly in /media
     Path(media_path).mkdir(parents=True, exist_ok=True)
-    _LOGGER.info("Voice recordings media folder ensured at: %s", media_path)
+    _LOGGER.info("Voice recordings will be saved to: %s", media_path)
     return media_path
 
 
 def _cleanup_media_folder(hass) -> None:
-    """Clean up the voice recordings media folder on integration unload."""
+    """Clean up voice recording files from media folder on integration unload."""
     try:
-        media_path = hass.config.path("media", "local", "voice-recordings")
+        media_path = "/media"
         if os.path.exists(media_path):
-            # Remove all files in the folder
+            # Only remove voice recording files (don't touch other media files)
             for filename in os.listdir(media_path):
-                file_path = os.path.join(media_path, filename)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-                    _LOGGER.debug("Removed voice recording file: %s", filename)
-
-            # Remove the folder if it's empty
-            try:
-                os.rmdir(media_path)
-                _LOGGER.info("Removed voice recordings media folder")
-            except OSError:
-                # Folder not empty (other files exist), leave it
-                _LOGGER.debug("Voice recordings folder not removed (not empty)")
+                if filename.startswith("voice_recording_") and filename.endswith(
+                    ".mp3"
+                ):
+                    file_path = os.path.join(media_path, filename)
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                        _LOGGER.debug("Removed voice recording file: %s", filename)
+            _LOGGER.info("Cleaned up voice recording files from media folder")
     except Exception as e:
-        _LOGGER.warning("Could not cleanup voice recordings folder: %s", e)
+        _LOGGER.warning("Could not cleanup voice recording files: %s", e)
 
 
 async def async_setup(hass, config: dict) -> bool:
