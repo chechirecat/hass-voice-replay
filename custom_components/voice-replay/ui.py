@@ -1184,12 +1184,16 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
                 }
 
                 # Check if this is a Sonos group coordinator
-                if (player_info["is_sonos"] and
-                    len(player_info["group_members"]) > 1 and
-                    state.entity_id in player_info["group_members"]):
+                if (
+                    player_info["is_sonos"]
+                    and len(player_info["group_members"]) > 1
+                    and state.entity_id in player_info["group_members"]
+                ):
                     # This is a Sonos group coordinator
                     group_info = player_info.copy()
-                    group_info["name"] = f"🔊 {player_info['name']} Group ({len(player_info['group_members'])} speakers)"
+                    group_info["name"] = (
+                        f"🔊 {player_info['name']} Group ({len(player_info['group_members'])} speakers)"
+                    )
                     group_info["is_group"] = True
                     sonos_groups.append(group_info)
                     _LOGGER.debug(
@@ -1238,9 +1242,9 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
         if device_class == "speaker":
             # Additional check for Sonos-specific attributes
             return (
-                "group_members" in state.attributes or
-                "sonos" in state.entity_id.lower() or
-                "sonos" in state.attributes.get("friendly_name", "").lower()
+                "group_members" in state.attributes
+                or "sonos" in state.entity_id.lower()
+                or "sonos" in state.attributes.get("friendly_name", "").lower()
             )
 
         return False
