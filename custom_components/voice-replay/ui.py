@@ -1164,30 +1164,86 @@ class VoiceReplayMediaPlayersView(HomeAssistantView):
         self.hass = hass
 
     async def get(self, request: web.Request) -> web.Response:
-        """Return list of available media players."""
+        """Return list of available media players with Sonos groups at the top."""
         media_players = []
+        sonos_groups = []
+        individual_players = []
 
         _LOGGER.info("Processing media players request...")
 
+        # First pass: collect all media players and identify Sonos entities
         for state in self.hass.states.async_all():
             if state.entity_id.startswith("media_player."):
                 player_info = {
                     "entity_id": state.entity_id,
                     "name": state.attributes.get("friendly_name", state.entity_id),
                     "state": state.state,
+                    "is_sonos": self._is_sonos_entity(state),
+                    "group_members": state.attributes.get("group_members", []),
+                    "device_class": state.attributes.get("device_class"),
                 }
-                media_players.append(player_info)
+
+                # Check if this is a Sonos group coordinator
+                if (player_info["is_sonos"] and
+                    len(player_info["group_members"]) > 1 and
+                    state.entity_id in player_info["group_members"]):
+                    # This is a Sonos group coordinator
+                    group_info = player_info.copy()
+                    group_info["name"] = f"🔊 {player_info['name']} Group ({len(player_info['group_members'])} speakers)"
+                    group_info["is_group"] = True
+                    sonos_groups.append(group_info)
+                    _LOGGER.debug(
+                        "Added Sonos group: %s (%s) with %d members",
+                        group_info["name"],
+                        group_info["entity_id"],
+                        len(player_info["group_members"]),
+                    )
+
+                # Add to individual players list
+                individual_players.append(player_info)
                 _LOGGER.debug(
-                    "Added media player: %s (%s) - %s",
+                    "Added media player: %s (%s) - %s %s",
                     player_info["name"],
                     player_info["entity_id"],
                     player_info["state"],
+                    "(Sonos)" if player_info["is_sonos"] else "",
                 )
 
-        _LOGGER.info("Found %d media players total", len(media_players))
+        # Sort groups and individual players alphabetically by name
+        sonos_groups.sort(key=lambda x: x["name"].lower())
+        individual_players.sort(key=lambda x: x["name"].lower())
+
+        # Combine: Sonos groups first, then individual players
+        media_players = sonos_groups + individual_players
+
+        _LOGGER.info(
+            "Found %d media players total (%d Sonos groups, %d individual players)",
+            len(media_players),
+            len(sonos_groups),
+            len(individual_players),
+        )
         _LOGGER.debug("Returning media players: %s", [p["name"] for p in media_players])
 
         return web.json_response(media_players)
+
+    def _is_sonos_entity(self, state) -> bool:
+        """Check if the media player entity is a Sonos device."""
+        # Check if entity is from Sonos integration
+        integration = state.attributes.get("integration")
+        if integration == "sonos":
+            return True
+
+        # Check device class
+        device_class = state.attributes.get("device_class")
+        if device_class == "speaker":
+            # Additional check for Sonos-specific attributes
+            return (
+                "group_members" in state.attributes or
+                "sonos" in state.entity_id.lower() or
+                "sonos" in state.attributes.get("friendly_name", "").lower()
+            )
+
+        return False
 
 
 class VoiceReplayTTSConfigView(HomeAssistantView):
