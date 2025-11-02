@@ -13,7 +13,7 @@
     "homekit": {},
     "integration_type": "device",
     "iot_class": "local_polling",
-    "issue_tracker": "https://github.com/chechire/hass-voice-replay/issues",
+    "issue_tracker": "https://github.com/chechirecat/hass-voice-replay/issues",
     "loggers": [],
     "mqtt": [],
     "requirements": [],
