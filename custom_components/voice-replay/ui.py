@@ -1206,6 +1206,9 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Return TTS configuration."""
         try:
+            # Get TTS configuration from integration data
+            tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
+
             # Check if TTS is available
             tts_services = []
             if self.hass.services.has_service("tts", "speak"):
@@ -1224,6 +1227,9 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
                 "available": len(tts_services) > 0,
                 "services": tts_services,
                 "default_service": "speak" if tts_services else None,
+                "prepend_silence_seconds": tts_config.get("prepend_silence_seconds", 3),
+                "volume_boost_enabled": tts_config.get("volume_boost_enabled", True),
+                "volume_boost_amount": tts_config.get("volume_boost_amount", 0.1),
             })
         except Exception as e:
             _LOGGER.error("Error getting TTS config: %s", e)
