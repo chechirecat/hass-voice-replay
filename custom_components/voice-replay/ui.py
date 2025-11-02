@@ -593,7 +593,7 @@ class VoiceReplayUploadView(HomeAssistantView):
             )
 
         # Convert WebM to MP3 if needed (updates file in place)
-        await self._convert_webm_to_mp3(
+        await self._convert_audio_to_mp3(
             file_path, provided_content_type, file_extension
         )
 
@@ -628,40 +628,47 @@ class VoiceReplayUploadView(HomeAssistantView):
     def _determine_file_format(self, provided_content_type: str) -> tuple[str, str]:
         """Determine file extension and media content type."""
         if "mp4" in provided_content_type:
-            return ".m4a", "audio/mp4"
+            # Convert m4a to MP3 for universal compatibility
+            return ".mp3", "audio/mpeg"
         elif "mpeg" in provided_content_type or "mp3" in provided_content_type:
             return ".mp3", "audio/mpeg"
         elif "wav" in provided_content_type:
             return ".wav", "audio/wav"
         elif "webm" in provided_content_type:
-            _LOGGER.info(
-                "WebM audio received - converting to MP3 for Sonos compatibility"
-            )
+            # Convert WebM to MP3 for universal compatibility
             return ".mp3", "audio/mpeg"
         else:
-            return ".webm", "audio/webm"
+            return ".mp3", "audio/mpeg"  # Default to MP3 for unknown formats
 
-    async def _convert_webm_to_mp3(
+    async def _convert_audio_to_mp3(
         self, temp_path: str, provided_content_type: str, file_extension: str
     ) -> str:
-        """Convert WebM to MP3 if needed and return final content type."""
-        if "webm" in provided_content_type and file_extension == ".mp3":
+        """Convert WebM or m4a to MP3 for universal media player compatibility."""
+        should_convert = (
+            "webm" in provided_content_type and file_extension == ".mp3"
+        ) or ("mp4" in provided_content_type and file_extension == ".mp3")
+
+        if should_convert:
             import os
             import shutil
             import subprocess
 
             if shutil.which("ffmpeg"):
                 try:
-                    mp3_temp_path = temp_path.replace(".mp3", "_converted.mp3")
+                    # Determine source format for logging
+                    if "mp4" in provided_content_type:
+                        source_format = "m4a"
+                        _LOGGER.info(
+                            "Converting m4a to MP3 for universal compatibility"
+                        )
+                    else:
+                        source_format = "webm"
+                        _LOGGER.info(
+                            "Converting WebM to MP3 for universal compatibility"
+                        )
 
-                    # Read silence prepend configuration from integration options (seconds)
-                    tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
-                    prepend_silence_seconds = tts_config.get(
-                        "prepend_silence_seconds", 3
-                    )
-                    silence_ms = int(
-                        prepend_silence_seconds * 1000
-                    )  # Convert to milliseconds
+                    # Create temporary file with .tmp extension to avoid conflicts
+                    temp_converted_path = temp_path + ".tmp"
 
                     command = [
                         "ffmpeg",
@@ -679,7 +686,7 @@ class VoiceReplayUploadView(HomeAssistantView):
                         "-f",
                         "mp3",
                         "-y",  # Overwrite output file
-                        mp3_temp_path,
+                        temp_converted_path,
                     ]
 
                     result = subprocess.run(
@@ -691,30 +698,27 @@ class VoiceReplayUploadView(HomeAssistantView):
                     _LOGGER.debug("FFmpeg conversion stdout: %s", result.stdout)
                     _LOGGER.debug("FFmpeg conversion stderr: %s", result.stderr)
 
-                    # Replace original file with converted file (now with leading silence)
+                    # Replace original file with converted file
                     os.remove(temp_path)
-                    os.rename(mp3_temp_path, temp_path)
+                    os.rename(temp_converted_path, temp_path)
+
                     _LOGGER.info(
-                        "Successfully converted WebM to MP3 and prepended %s seconds (%sms) of silence",
-                        prepend_silence_seconds,
-                        silence_ms,
+                        "Successfully converted %s to MP3",
+                        source_format,
                     )
                     return "audio/mpeg"
-                except (subprocess.CalledProcessError, Exception) as e:
-                    _LOGGER.error("FFmpeg conversion failed: %s", e)
-                    if hasattr(e, "stderr") and e.stderr:
-                        _LOGGER.error("FFmpeg stderr: %s", e.stderr)
-                    if hasattr(e, "stdout") and e.stdout:
-                        _LOGGER.error("FFmpeg stdout: %s", e.stdout)
-                    # Log the command that failed
-                    _LOGGER.error(
-                        "Failed FFmpeg command: %s",
-                        e.cmd if hasattr(e, "cmd") else "unknown",
-                    )
-                    return "audio/webm"
+                except subprocess.CalledProcessError as e:
+                    _LOGGER.error("FFmpeg conversion failed: %s", e.stderr)
+                    return provided_content_type
+                except Exception as e:
+                    _LOGGER.error("Conversion error: %s", e)
+                    return provided_content_type
             else:
-                _LOGGER.warning("FFmpeg not found - cannot convert WebM to MP3")
-                return "audio/webm"
+                _LOGGER.warning(
+                    "FFmpeg not available, cannot convert %s",
+                    source_format if "source_format" in locals() else "audio",
+                )
+                return provided_content_type
 
         return provided_content_type
 
