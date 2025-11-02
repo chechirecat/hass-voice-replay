@@ -127,8 +127,6 @@ jobs:
           
           ### What's Changed
           
-          ${{ steps.git-cliff.outputs.content }}
-          
           ### Need Help?
           * 📚 [Documentation](https://github.com/chechirecat/hass-voice-replay/blob/main/README.md)
           * 🐛 [Report Issues](https://github.com/chechirecat/hass-voice-replay/issues)

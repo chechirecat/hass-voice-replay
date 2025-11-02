@@ -49,8 +49,6 @@ This eliminates the need to manually update comparison URLs in release notes and
 
 ### What's New in v{VERSION}
 
-{CHANGELOG_CONTENT}
-
 ### Features Overview
 * 🎤 **Voice Recording API** - Record audio via browser and save to media players
 * 🗣️ **Text-to-Speech API** - Generate speech using Home Assistant's TTS services
@@ -67,6 +65,9 @@ This eliminates the need to manually update comparison URLs in release notes and
 * 📚 [Documentation](https://github.com/chechirecat/hass-voice-replay/blob/main/README.md)
 * 🐛 [Report Issues](https://github.com/chechirecat/hass-voice-replay/issues)
 * 💬 [Discussions](https://github.com/chechirecat/hass-voice-replay/discussions)
+
+{CHANGELOG_CONTENT}
+
 ```
 
 ## Release Types
