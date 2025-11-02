@@ -663,10 +663,6 @@ class VoiceReplayUploadView(HomeAssistantView):
                         prepend_silence_seconds * 1000
                     )  # Convert to milliseconds
 
-                    # Use adelay to prepend silence so the player's warm-up delay doesn't drop recording content.
-                    # Use :all=1 to apply to all channels when supported; fallback to single value is handled by ffmpeg.
-                    afilter = f"adelay={silence_ms}:all=1,aresample=44100"
-
                     command = [
                         "ffmpeg",
                         "-hide_banner",
@@ -674,8 +670,6 @@ class VoiceReplayUploadView(HomeAssistantView):
                         "error",
                         "-i",
                         temp_path,
-                        "-af",
-                        afilter,
                         "-ar",
                         "44100",  # Standard sample rate
                         "-ac",
