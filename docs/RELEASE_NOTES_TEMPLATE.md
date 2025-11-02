@@ -2,6 +2,26 @@
 
 This template helps create consistent, comprehensive release notes for the Voice Replay Integration.
 
+# Release Notes Template
+
+This template helps create consistent, comprehensive release notes for the Voice Replay Integration.
+
+## Automatic Version Comparison
+
+The release workflow now automatically generates comparison URLs between releases:
+
+- **Current release vs Latest**: Automatically detects the GitHub "Latest" release and creates a comparison URL
+- **Stable baseline**: Compares against the release marked as "Latest" (not just the previous chronological tag)
+- **First release**: Falls back to showing commit history if no latest release exists
+- **Example**: For v0.8.2 compared against v0.7.0 (Latest) → `https://github.com/chechirecat/hass-voice-replay/compare/v0.7.0...v0.8.2`
+
+### How It Works
+1. Uses GitHub API to fetch the release marked as "Latest"
+2. Creates comparison URL from Latest → Current release
+3. This ensures comparison against stable baseline, not just previous development tags
+
+This eliminates the need to manually update comparison URLs in release notes and provides meaningful comparisons against stable releases.
+
 ## Basic Release Notes Structure
 
 ```markdown

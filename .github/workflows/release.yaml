@@ -50,6 +50,30 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GIT_CLIFF_TAG: ${{ steps.info.outputs.tag_name }}
 
+      - name: "Get Latest Release for Comparison"
+        id: latest_release
+        shell: bash
+        run: |
+          # Get the latest release (marked as "Latest" in GitHub) for comparison
+          echo "Fetching latest release from GitHub API..."
+          
+          # Use GitHub API to get the latest release
+          LATEST_RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+          
+          # Extract tag name from the response
+          LATEST_TAG=$(echo "$LATEST_RELEASE_JSON" | jq -r '.tag_name // empty')
+          
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "No latest release found, this might be the first release"
+            echo "latest_tag=" >> "$GITHUB_OUTPUT"
+            echo "has_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Latest release tag: $LATEST_TAG"
+            echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+            echo "has_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: "Create Enhanced Release Notes"
         id: release_notes
         shell: bash
@@ -110,8 +134,14 @@ jobs:
           * 🐛 [Report Issues](https://github.com/chechirecat/hass-voice-replay/issues)
           * 💬 [Discussions](https://github.com/chechirecat/hass-voice-replay/discussions)
           
-          **Full Changelog**: https://github.com/chechirecat/hass-voice-replay/commits/${{ steps.info.outputs.tag_name }}
           EOF
+          
+          # Add comparison URL based on latest release
+          if [ "${{ steps.latest_release.outputs.has_latest }}" == "true" ]; then
+            echo "**Full Changelog**: https://github.com/chechirecat/hass-voice-replay/compare/${{ steps.latest_release.outputs.latest_tag }}...${{ steps.info.outputs.tag_name }}" >> release_notes.md
+          else
+            echo "**Full Changelog**: https://github.com/chechirecat/hass-voice-replay/commits/${{ steps.info.outputs.tag_name }}" >> release_notes.md
+          fi
 
       - name: "Determine release type"
         id: release-type
