@@ -827,7 +827,9 @@ class VoiceReplayUploadView(HomeAssistantView):
                 )
 
             # Check if playback actually started by comparing media_content_id
-            if new_state and media_content_id in str(new_state.attributes.get("media_content_id", "")):
+            if new_state and media_content_id in str(
+                new_state.attributes.get("media_content_id", "")
+            ):
                 _LOGGER.info("Media source playback successful!")
             else:
                 _LOGGER.warning(
