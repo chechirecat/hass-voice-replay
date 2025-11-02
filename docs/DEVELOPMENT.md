@@ -1,14 +1,15 @@
 # Development Guide
 
-This guide covers development setup, architecture, and contribution guidelines for the Voice Replay Integration.
+This comprehensive guide covers everything you need to develop and contribute to the Voice Replay Integration.
 
 ## Table of Contents
 
 - [Development Environment](#development-environment)
 - [Project Structure](#project-structure)
+- [Code Quality & Linting](#code-quality--linting)
+- [Release Process](#release-process)
 - [API Architecture](#api-architecture)
 - [Testing](#testing)
-- [Release Process](#release-process)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
@@ -47,24 +48,68 @@ This guide covers development setup, architecture, and contribution guidelines f
 
 5. **Restart Home Assistant** and add the integration
 
-### Development Tools
+### PowerShell Setup (Windows)
 
-The project includes several development tools:
-
-- **Linting:** `ruff` for code quality
-- **Formatting:** `ruff` for code formatting  
-- **Type checking:** `mypy` for static analysis
-- **Testing:** `pytest` for unit tests
-- **Pre-commit:** Automated code quality checks
-
-### Running Development Tools
-
-**Note for Windows PowerShell users:** Before running PowerShell scripts, you may need to set the execution policy. See **[PowerShell Execution Policy Guide](POWERSHELL_EXECUTION_POLICY.md)** for detailed instructions.
+Before running PowerShell scripts, set the execution policy:
 
 ```powershell
-# Quick setup - allows local scripts to run
+# Allow local scripts to run (required for release scripts)
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
+
+## Code Quality & Linting
+
+### Automated CI/CD Pipeline
+
+The GitHub Actions workflow automatically:
+- ✅ Runs `ruff check` for code quality validation
+- ✅ Runs `ruff format` for automatic formatting
+- ✅ Auto-commits formatting changes back to the repo
+- 🚫 No more failed builds due to formatting issues!
+
+### Local Development Options
+
+#### Option 1: Manual Formatting (Easiest)
+```bash
+# Linux/macOS
+./scripts/format.sh
+
+# Windows PowerShell
+.\scripts\format.ps1
+
+# Or directly with ruff
+ruff format .
+ruff check . --fix
+```
+
+#### Option 2: Pre-commit Hooks (Automatic)
+```bash
+# Install pre-commit (one time setup)
+pip install pre-commit
+pre-commit install
+
+# Now formatting happens automatically on every commit!
+git commit -m "My changes"  # <- Formatting runs automatically
+```
+
+#### Option 3: IDE Integration
+
+**VS Code:**
+1. Install the "Ruff" extension
+2. Add to your settings.json:
+```json
+{
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit"
+        }
+    }
+}
+```
+
+### Development Tools
 
 ```bash
 # Run all linting checks
@@ -80,14 +125,58 @@ mypy custom_components/voice-replay/
 pytest tests/
 ```
 
-**PowerShell equivalents:**
+## Release Process
 
-```powershell
-# Version consistency check
-.\scripts\check-version-consistency.ps1 -Verbose
+### Quick Start
 
-# Release automation  
-.\scripts\release.ps1
+```bash
+# Bash (Linux/macOS/WSL)
+./scripts/release.sh                    # Patch release
+./scripts/release.sh --increment minor  # Minor release
+./scripts/release.sh --increment major  # Major release
+
+# PowerShell (Windows/Cross-platform)
+.\scripts\release.ps1                   # Patch release
+.\scripts\release.ps1 -Increment minor  # Minor release  
+.\scripts\release.ps1 -Increment major  # Major release
+```
+
+### Release Process Flow
+
+#### 1. Pre-Release Validation
+- ✅ **Working Directory Check:** Ensures no uncommitted changes
+- ✅ **Branch Check:** Confirms you're on the `main` branch
+- ✅ **Remote Access:** Verifies git remote connectivity
+- ✅ **Version Consistency:** Validates all version files match
+
+#### 2. Version Management
+- 🔢 **Multi-File Detection:** Reads versions from manifest.json, pyproject.toml
+- 🔍 **Consistency Check:** Ensures all version files have the same value
+- ➕ **Version Increment:** Calculates new version based on increment type
+- 🔍 **Duplicate Check:** Verifies new version doesn't already exist remotely
+
+#### 3. Release Execution
+- 📁 **File Updates:** Modifies version in all files simultaneously
+- 💾 **Git Commit:** Commits version changes with standard message
+- 🔖 **Tag Creation:** Creates annotated git tag with version
+- 🚀 **Push Operations:** Pushes both commit and tag to remote
+- ⚙️ **CI Trigger:** Triggers GitHub Actions release workflow
+
+### Version Management
+
+The integration maintains version consistency across multiple files:
+
+```json
+// custom_components/voice-replay/manifest.json
+{
+  "version": "1.2.3"
+}
+```
+
+```toml
+# pyproject.toml
+[project]
+version = "1.2.3"
 ```
 
 ## Project Structure

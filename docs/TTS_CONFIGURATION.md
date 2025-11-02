@@ -1,49 +1,49 @@
-# Wyoming Protocol Compatibility for Voice Replay
+# TTS Configuration Guide
 
-This document describes the Wyoming Protocol compatibility improvements made to the Voice Replay integration.
+This guide explains how to configure Text-to-Speech (TTS) engines with the Voice Replay integration for optimal voice and speaker selection.
 
 ## Overview
 
-The Voice Replay integration has been enhanced to support the Wyoming Protocol, which is used by Home Assistant's Assistant pipeline for TTS services like Piper. This ensures better compatibility and configuration handling for Wyoming-based TTS engines.
+The Voice Replay integration supports all Home Assistant TTS engines, with enhanced configuration options for modern TTS services like Piper, Google TTS, and other advanced speech synthesis engines. The integration automatically detects your TTS capabilities and provides appropriate configuration options.
 
-## Key Improvements
+## Key Features
 
 ### 1. Voice and Speaker Separation
 
-The configuration now properly separates voice and speaker selection, following the Wyoming Protocol pattern:
+For TTS engines that support multiple speakers per voice model, the configuration separates:
 
-- **Voice**: The main voice model (e.g., `de_DE-eva-low`)  
-- **Speaker**: Optional speaker for multi-speaker voices (e.g., `eva`)
+- **Voice**: The main voice model (e.g., `de_DE-eva-low`, `en_US-amy-medium`)  
+- **Speaker**: Optional speaker variant for multi-speaker voices (e.g., `eva`, `p225`)
 
-This matches how Wyoming TTS entities handle voice configuration internally.
+This ensures you get the exact voice and speaker combination you want.
 
-### 2. Enhanced Voice Detection
+### 2. Smart TTS Detection
 
-The integration now includes improved detection logic for Wyoming TTS entities:
+The integration automatically detects your TTS engine capabilities:
 
-- Recognizes Wyoming TTS entities by checking for `wyoming` in entity IDs
-- Detects Wyoming-specific attributes like `supported_options` containing `speaker`
-- Handles both Piper and other Wyoming TTS implementations
-- Supports alternative language format detection (`de_DE`, `de-DE`, `de`)
+- Recognizes modern TTS engines (Piper, Google TTS, etc.)
+- Detects available voice and speaker options
+- Handles both simple and advanced TTS configurations  
+- Supports various language format variations (`de_DE`, `de-DE`, `de`)
 
-### 3. Protocol-Aware TTS Calls
+### 3. Intelligent TTS Calls
 
-When calling TTS services, the integration now:
+When generating speech, the integration:
 
-- Formats voice and speaker options according to Wyoming Protocol standards
-- Uses separate `voice` and `speaker` parameters for Wyoming entities
-- Falls back to combined voice names for non-Wyoming engines
-- Validates voice-speaker combinations before making calls
+- Uses the optimal format for your specific TTS engine
+- Separates voice and speaker parameters when supported
+- Falls back to combined voice names for simpler engines
+- Validates configurations before making TTS calls
 
-### 4. Configuration Flow Improvements
+### 4. Enhanced Setup Process
 
-The setup process has been enhanced with:
+The configuration flow provides:
 
-- Multi-step configuration for voice and speaker selection
-- Automatic detection of available speakers for selected voices
+- Step-by-step voice and speaker selection
+- Automatic detection of available options for your TTS engine
 - Validation of voice-speaker combinations
-- Error messages for invalid configurations
-- Support for manual entry when auto-detection fails
+- Clear error messages for invalid configurations
+- Manual entry option when auto-detection isn't available
 
 ## Configuration Steps
 

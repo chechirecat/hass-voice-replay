@@ -35,10 +35,13 @@ To get the full Voice Replay experience, you need both:
 
 1. Make sure you have HACS installed: https://hacs.xyz
 2. Add this repository as a custom repository to HACS:
+
    [![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chechirecat&repository=hass-voice-replay&category=integration)
+
 3. Install the integration via HACS
 4. Restart Home Assistant
-5. Set up the integration:  
+5. Set up the integration:
+
    [![Add Integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=voice-replay)
 
 ### Manual Installation
@@ -68,7 +71,7 @@ This integration provides RESTful API endpoints for integration with frontend ca
 - **GET** `/api/voice-replay/tts_config` - Check TTS configuration
 - **GET** `/api/voice-replay/media/{filename}` - Serve temporary audio files
 
-**📖 [Development Guide →](docs/DEVELOPMENT.md)** - Detailed API documentation and development setup
+**📖 [Development Guide →](docs/DEVELOPMENT.md)** - Complete setup, API documentation, and contribution guide
 
 ## Service Usage
 
@@ -108,6 +111,7 @@ curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
 - **HTTPS Required**: Microphone access requires a secure connection
 - **Supported Browsers**: Chrome, Firefox, Safari, Edge (modern versions)
 - **Permissions**: Browser will request microphone permission on first use
+
 ## Troubleshooting
 
 ### Common Issues
@@ -121,39 +125,32 @@ curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
 
 - 🐛 **[Report Bugs](https://github.com/chechirecat/hass-voice-replay/issues)** - Found an issue? Let us know!
 - 💡 **[Request Features](https://github.com/chechirecat/hass-voice-replay/discussions)** - Have an idea? Share it!
-- 📖 **[Development Guide](docs/DEVELOPMENT.md)** - Detailed troubleshooting and API documentation
+- 📖 **[Development Guide](docs/DEVELOPMENT.md)** - Complete setup, troubleshooting, and API documentation
 
 ## Changelog
 
-### Version 0.5.0 - Wyoming Protocol Compatibility
+### Version 0.9.x - Current Release
 
-🎯 **Enhanced TTS Configuration with Wyoming Protocol Support**
+🎯 **Latest Features and Improvements**
 
-- **🔊 Separated Voice and Speaker Configuration**: Following Wyoming Protocol patterns, voice and speaker selection are now handled separately for better compatibility with Piper TTS and other Wyoming-based engines
-- **🎤 Enhanced Voice Detection**: Improved detection logic for Wyoming TTS entities with support for both Piper and other Wyoming implementations
-- **⚙️ Protocol-Aware TTS Calls**: Automatic detection of Wyoming TTS entities with proper voice/speaker parameter formatting
-- **🔧 Multi-Step Configuration Flow**: New configuration steps for voice and speaker selection with validation
-- **✅ Voice-Speaker Validation**: Built-in validation of voice-speaker combinations to prevent configuration errors
-- **🌐 Better Language Support**: Enhanced language format detection supporting various formats (de_DE, de-DE, de)
-- **📚 Comprehensive Documentation**: Added Wyoming Protocol compatibility documentation
+- **0.9.3**: Documentation streamlining, Sonos group detection, media player sorting
+- **0.9.2**: Card picker preview fixes, universal MP3 conversion for Sonos compatibility  
+- **0.9.1**: Prepend silence configuration fixes, nullish coalescing operator improvements
+- **0.9.0**: Major audio format compatibility overhaul, enhanced media player integration
 
-**Wyoming Protocol Benefits:**
-- Perfect compatibility with Piper TTS voices and speakers
-- Proper handling of multi-speaker voice models
-- Future-proof configuration for Home Assistant's Assistant pipeline
-- Better error handling and user feedback
+**Key Benefits**: Universal audio compatibility, improved Sonos support, streamlined documentation
 
-### Previous Versions
+### Previous Major Versions
 
-- **0.4.7**: Improved TTS engine detection and voice configuration
-- **0.4.x**: Enhanced media player compatibility and Sonos support
-- **0.3.x**: Core voice recording and TTS functionality
+- **0.8.x**: Volume control features, automatic volume boost for announcements
+- **0.7.x**: Advanced media player detection, enhanced error handling
+- **0.6.x**: Multi-room audio support, improved TTS integration
+- **0.5.x**: Enhanced TTS configuration, voice and speaker separation for modern engines
+- **0.4.x**: Media player compatibility improvements, Sonos support foundations
 
 ## Development
 
-**🛠️ [Development Guide →](docs/DEVELOPMENT.md)** - Complete setup, architecture, and contribution guide
-
-**📖 [Release Automation →](docs/RELEASE_AUTOMATION.md)** - Automated release process documentation
+**🛠️ [Development Guide →](docs/DEVELOPMENT.md)** - Complete setup, architecture, release process, and contribution guide
 
 ### Quick Start for Developers
 
@@ -165,6 +162,11 @@ pip install -r requirements_dev.txt
 pre-commit install
 ```
 
+### Additional Documentation
+
+- **[Volume Control Feature](docs/VOLUME_CONTROL.md)** - Automatic volume boost functionality
+- **[TTS Configuration Guide](docs/TTS_CONFIGURATION.md)** - Voice and speaker selection for TTS engines
+
 ## Contributing
 
 Contributions are welcome! Please:
@@ -174,7 +176,7 @@ Contributions are welcome! Please:
 4. Test thoroughly
 5. Submit a pull request
 
-**📖 [Documentation Index →](docs/README.md)** - Detailed contribution guidelines and setup
+**📖 [Development Guide](docs/DEVELOPMENT.md)** - Detailed contribution guidelines and setup
 
 ## License
 
