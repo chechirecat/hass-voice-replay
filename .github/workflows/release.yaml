@@ -50,6 +50,69 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GIT_CLIFF_TAG: ${{ steps.info.outputs.tag_name }}
 
+      - name: "Create Enhanced Release Notes"
+        id: release_notes
+        shell: bash
+        run: |
+          # Create enhanced release notes with installation instructions and features
+          cat > release_notes.md << EOF
+          ## 🎤 Voice Replay Integration v${{ steps.info.outputs.version }}
+          
+          ### Installation
+          
+          #### Via HACS (Recommended)
+          [![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chechirecat&repository=hass-voice-replay&category=integration)
+          
+          1. Click the badge above to add this repository to HACS
+          2. Search for "Voice Replay" in HACS Integrations
+          3. Install and restart Home Assistant
+          4. Go to Settings → Devices & Services → Add Integration → "Voice Replay"
+          
+          #### Manual Installation
+          1. Download \`voice-replay.zip\` from this release
+          2. Extract to your \`<config>/custom_components/\` folder
+          3. Restart Home Assistant
+          4. Add the integration via Settings → Devices & Services
+          
+          ### Requirements
+          * Home Assistant 2025.10.4 or newer
+          * Voice Replay Card (install separately for frontend UI)
+          
+          ### Features
+          * 🎤 **Voice Recording API** - Record audio via browser and save to media players
+          * 🗣️ **Text-to-Speech API** - Generate speech using Home Assistant's TTS services
+          * 🏠 **Multi-Room Audio** - Play on any media player in your home
+          * ⚙️ **Configurable Settings** - Silence prepend, volume boost, and more
+          * 🔐 **Secure** - Built-in Home Assistant authentication
+          * 📱 **RESTful API** - Easy integration with custom cards and automations
+          
+          ### Configuration Options
+          * **Prepend Silence**: Configurable 0-10 seconds to prevent audio cutoffs
+          * **Volume Boost**: Optional volume increase during playback
+          * **TTS Engine Selection**: Choose from available TTS engines
+          * **Language & Voice**: Support for multiple languages and voices
+          
+          ### API Endpoints
+          * \`/api/voice-replay/upload\` - Upload audio recordings and TTS requests
+          * \`/api/voice-replay/media_players\` - Get available media players
+          * \`/api/voice-replay/tts_config\` - Get TTS configuration
+          
+          ### Frontend Card
+          **🎨 Looking for the Lovelace Card?** Install the companion frontend card:
+          👉 **[Voice Replay Card Repository](https://github.com/chechirecat/hass-voice-replay-card)** 👈
+          
+          ### What's Changed
+          
+          ${{ steps.git-cliff.outputs.content }}
+          
+          ### Need Help?
+          * 📚 [Documentation](https://github.com/chechirecat/hass-voice-replay/blob/main/README.md)
+          * 🐛 [Report Issues](https://github.com/chechirecat/hass-voice-replay/issues)
+          * 💬 [Discussions](https://github.com/chechirecat/hass-voice-replay/discussions)
+          
+          **Full Changelog**: https://github.com/chechirecat/hass-voice-replay/commits/${{ steps.info.outputs.tag_name }}
+          EOF
+
       - name: "Determine release type"
         id: release-type
         shell: bash
@@ -78,7 +141,7 @@ jobs:
         with:
           draft: true
           prerelease: ${{ steps.release-type.outputs.is_prerelease }}
-          body: ${{ steps.git-cliff.outputs.content }}
+          body_path: release_notes.md
           tag_name: ${{ steps.info.outputs.tag_name }}
           target_commitish: '${{ github.sha }}'
 
