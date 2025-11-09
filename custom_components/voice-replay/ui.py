@@ -32,6 +32,33 @@ class VoiceReplayUploadView(HomeAssistantView):
         super().__init__()
         self.hass = hass
 
+    def _expand_entity_ids(self, entity_id: str) -> list[str]:
+        """Expand group entity_id to all member entity_ids.
+
+        If the entity_id is a group with group_members, return all members.
+        Otherwise, return the single entity_id in a list.
+        """
+        state = self.hass.states.get(entity_id)
+        if not state:
+            _LOGGER.warning("Entity %s not found, using as-is", entity_id)
+            return [entity_id]
+
+        # Check if this entity has group_members attribute
+        group_members = state.attributes.get("group_members", [])
+
+        # If it has multiple group members, expand to play on all of them
+        if group_members and len(group_members) > 1:
+            _LOGGER.info(
+                "Expanding group %s to %d members: %s",
+                entity_id,
+                len(group_members),
+                group_members,
+            )
+            return group_members
+
+        # Not a group or single member, return as single-item list
+        return [entity_id]
+
     async def post(self, request: web.Request) -> web.Response:
         """Handle POST request for audio upload."""
         try:
@@ -69,6 +96,9 @@ class VoiceReplayUploadView(HomeAssistantView):
     async def _handle_tts_request(self, entity_id: str, text: str) -> web.Response:
         """Handle text-to-speech request using configured TTS settings."""
         try:
+            # Expand group entity_id to all member entity_ids
+            target_entity_ids = self._expand_entity_ids(entity_id)
+
             # Get TTS configuration from integration data
             tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
             _LOGGER.info("Retrieved TTS config from hass.data: %s", tts_config)
@@ -77,12 +107,15 @@ class VoiceReplayUploadView(HomeAssistantView):
             volume_boost_enabled = tts_config.get("volume_boost_enabled", True)
             volume_boost_amount = tts_config.get("volume_boost_amount", 0.1)
 
-            # Store original volume if volume boost is enabled
-            original_volume = None
+            # Store original volumes for all target entities if volume boost is enabled
+            original_volumes = {}
             if volume_boost_enabled:
-                original_volume = await self._store_and_boost_volume(
-                    entity_id, volume_boost_amount
-                )
+                for target_id in target_entity_ids:
+                    vol = await self._store_and_boost_volume(
+                        target_id, volume_boost_amount
+                    )
+                    if vol is not None:
+                        original_volumes[target_id] = vol
 
             # Get configured settings
             configured_engine = tts_config.get("engine", "auto")
@@ -187,84 +220,114 @@ class VoiceReplayUploadView(HomeAssistantView):
             else:
                 _LOGGER.warning("No language configured - TTS will use engine default")
 
-            # For Sonos speakers, prepare the message with silence/announcement
-            is_sonos = any(
-                keyword in entity_id.lower()
-                for keyword in ["sonos", "play:1", "play:3", "play:5"]
-            )
-            if is_sonos:
-                _LOGGER.info(
-                    "Detected Sonos speaker, preparing message with silence..."
-                )
-                # Create snapshot first
-                try:
-                    await self.hass.services.async_call(
-                        "sonos", "snapshot", {"entity_id": entity_id}, blocking=True
-                    )
-                except Exception as sonos_prep_error:
-                    _LOGGER.warning(
-                        "Could not create Sonos snapshot: %s", sonos_prep_error
-                    )
-
-                # Add silence or announcement to the beginning of the text
-                text = await self._prepare_sonos_message(text, tts_entity)
-
-            # Call the TTS entity service
-            payload = {
-                "entity_id": tts_entity,  # The TTS engine entity
-                "media_player_entity_id": entity_id,  # The media player to play on
-                "message": text,
-                "cache": True,
-            }
-
-            # Force German language for debugging - remove this later
-            if normalized_language:
-                payload["language"] = normalized_language
-                _LOGGER.info("Using normalized language: %s", normalized_language)
-            else:
-                # Fallback to force German if no language detected
-                payload["language"] = "de_DE"
-                _LOGGER.warning("No language configured, forcing German (de_DE)")
-
-            if options:
-                payload["options"] = options
-
-            _LOGGER.info("TTS payload: %s", payload)
-
-            # Log the actual service call for debugging
-            _LOGGER.info("Calling tts.speak service with payload: %s", payload)
-            await self.hass.services.async_call("tts", "speak", payload, blocking=True)
-            _LOGGER.info("TTS service call completed successfully")
-
-            # Schedule volume restoration if volume boost was enabled
-            if volume_boost_enabled and original_volume is not None:
-                await self._schedule_volume_restore(
-                    entity_id, original_volume, is_sonos
+            # Play TTS on all target entities (handles both single players and groups)
+            for target_id in target_entity_ids:
+                # For Sonos speakers, prepare the message with silence/announcement
+                is_sonos = any(
+                    keyword in target_id.lower()
+                    for keyword in ["sonos", "play:1", "play:3", "play:5"]
                 )
 
-            # For Sonos, schedule restoration after a delay
-            if is_sonos:
-
-                async def restore_sonos():
-                    import asyncio
-
-                    await asyncio.sleep(10.0)  # Wait for TTS to finish
+                # Use the original text or Sonos-prepared text
+                tts_text = text
+                if is_sonos:
+                    _LOGGER.info(
+                        "Detected Sonos speaker %s, preparing message with silence...",
+                        target_id,
+                    )
+                    # Create snapshot first
                     try:
                         await self.hass.services.async_call(
-                            "sonos", "restore", {"entity_id": entity_id}, blocking=True
+                            "sonos", "snapshot", {"entity_id": target_id}, blocking=True
                         )
-                        _LOGGER.info("Sonos state restored after TTS")
-                    except Exception as restore_error:
+                    except Exception as sonos_prep_error:
                         _LOGGER.warning(
-                            "Could not restore Sonos state: %s", restore_error
+                            "Could not create Sonos snapshot for %s: %s",
+                            target_id,
+                            sonos_prep_error,
                         )
 
-                self.hass.async_create_task(restore_sonos())
+                    # Add silence or announcement to the beginning of the text
+                    tts_text = await self._prepare_sonos_message(text, tts_entity)
 
-            return web.json_response({
-                "status": "success",
-                "message": f"Playing TTS audio via {tts_entity}",
-            })
+                # Call the TTS entity service
+                payload = {
+                    "entity_id": tts_entity,  # The TTS engine entity
+                    "media_player_entity_id": target_id,  # The media player to play on
+                    "message": tts_text,
+                    "cache": True,
+                }
+
+                # Force German language for debugging - remove this later
+                if normalized_language:
+                    payload["language"] = normalized_language
+                    _LOGGER.info("Using normalized language: %s", normalized_language)
+                else:
+                    # Fallback to force German if no language detected
+                    payload["language"] = "de_DE"
+                    _LOGGER.warning("No language configured, forcing German (de_DE)")
+
+                if options:
+                    payload["options"] = options
+
+                _LOGGER.info("TTS payload for %s: %s", target_id, payload)
+
+                # Log the actual service call for debugging
+                _LOGGER.info(
+                    "Calling tts.speak service for %s with payload: %s",
+                    target_id,
+                    payload,
+                )
+                await self.hass.services.async_call(
+                    "tts", "speak", payload, blocking=True
+                )
+                _LOGGER.info(
+                    "TTS service call completed successfully for %s", target_id
+                )
+
+                # Schedule volume restoration if volume boost was enabled
+                if target_id in original_volumes:
+                    await self._schedule_volume_restore(
+                        target_id, original_volumes[target_id], is_sonos
+                    )
+
+                # For Sonos, schedule restoration after a delay
+                if is_sonos:
+
+                    async def restore_sonos(sonos_entity_id: str):
+                        import asyncio
+
+                        await asyncio.sleep(10.0)  # Wait for TTS to finish
+                        try:
+                            await self.hass.services.async_call(
+                                "sonos",
+                                "restore",
+                                {"entity_id": sonos_entity_id},
+                                blocking=True,
+                            )
+                            _LOGGER.info(
+                                "Sonos state restored after TTS for %s", sonos_entity_id
+                            )
+                        except Exception as restore_error:
+                            _LOGGER.warning(
+                                "Could not restore Sonos state for %s: %s",
+                                sonos_entity_id,
+                                restore_error,
+                            )
+
+                    self.hass.async_create_task(restore_sonos(target_id))
+
+            # Return success message
+            if len(target_entity_ids) > 1:
+                return web.json_response({
+                    "status": "success",
+                    "message": f"Playing TTS audio via {tts_entity} on {len(target_entity_ids)} speakers",
+                })
+            else:
+                return web.json_response({
+                    "status": "success",
+                    "message": f"Playing TTS audio via {tts_entity}",
+                })
 
         except Exception as tts_error:
             error_msg = str(tts_error)
@@ -545,6 +608,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         import os
         from datetime import datetime
 
+        # Expand group entity_id to all member entity_ids
+        target_entity_ids = self._expand_entity_ids(entity_id)
+
         audio_data = fields.get("audio")
         if not audio_data:
             return web.json_response({"error": "Missing audio data"}, status=400)
@@ -608,22 +674,32 @@ class VoiceReplayUploadView(HomeAssistantView):
         volume_boost_enabled = tts_config.get("volume_boost_enabled", True)
         volume_boost_amount = tts_config.get("volume_boost_amount", 0.1)
 
-        # Store original volume if volume boost is enabled
-        original_volume = None
+        # Store original volumes for all target entities if volume boost is enabled
+        original_volumes = {}
         if volume_boost_enabled:
-            original_volume = await self._store_and_boost_volume(
-                entity_id, volume_boost_amount
+            for target_id in target_entity_ids:
+                vol = await self._store_and_boost_volume(target_id, volume_boost_amount)
+                if vol is not None:
+                    original_volumes[target_id] = vol
+
+        # Play the audio on all target entities using media source announcement
+        for target_id in target_entity_ids:
+            original_vol = original_volumes.get(target_id)
+            await self._play_media_source_audio(
+                target_id, media_content_id, file_path, original_vol
             )
 
-        # Play the audio using media source announcement
-        await self._play_media_source_audio(
-            entity_id, media_content_id, file_path, original_volume
-        )
-
-        return web.json_response({
-            "status": "success",
-            "message": "Playing audio via media source",
-        })
+        # Return success message
+        if len(target_entity_ids) > 1:
+            return web.json_response({
+                "status": "success",
+                "message": f"Playing audio via media source on {len(target_entity_ids)} speakers",
+            })
+        else:
+            return web.json_response({
+                "status": "success",
+                "message": "Playing audio via media source",
+            })
 
     def _determine_file_format(self, provided_content_type: str) -> tuple[str, str]:
         """Determine file extension and media content type."""
