@@ -556,7 +556,7 @@ window.customCards.push({
 
 // Version info for HACS
 console.info(
-  `%c  VOICE-REPLAY-CARD  %c  Version 0.9.3  `,
+  `%c  VOICE-REPLAY-CARD  %c  Version 0.9.5  `,
   'color: orange; font-weight: bold; background: black',
   'color: white; font-weight: bold; background: dimgray',
 );
