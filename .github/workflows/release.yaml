@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  actions: read
+  pull-requests: read
 
 jobs:
   create-draft-release:
@@ -56,14 +58,14 @@ jobs:
         run: |
           # Get the latest release (marked as "Latest" in GitHub) for comparison
           echo "Fetching latest release from GitHub API..."
-          
+
           # Use GitHub API to get the latest release
           LATEST_RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/latest")
-          
+
           # Extract tag name from the response
           LATEST_TAG=$(echo "$LATEST_RELEASE_JSON" | jq -r '.tag_name // empty')
-          
+
           if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
             echo "No latest release found, this might be the first release"
             echo "latest_tag=" >> "$GITHUB_OUTPUT"
@@ -81,27 +83,27 @@ jobs:
           # Create enhanced release notes with installation instructions and features
           cat > release_notes.md << EOF
           ## 🎤 Voice Replay Integration v${{ steps.info.outputs.version }}
-          
+
           ### Installation
-          
+
           #### Via HACS (Recommended)
           [![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chechirecat&repository=hass-voice-replay&category=integration)
-          
+
           1. Click the badge above to add this repository to HACS
           2. Search for "Voice Replay" in HACS Integrations
           3. Install and restart Home Assistant
           4. Go to Settings → Devices & Services → Add Integration → "Voice Replay"
-          
+
           #### Manual Installation
           1. Download \`voice-replay.zip\` from this release
           2. Extract to your \`<config>/custom_components/\` folder
           3. Restart Home Assistant
           4. Add the integration via Settings → Devices & Services
-          
+
           ### Requirements
           * Home Assistant 2025.10.4 or newer
           * Voice Replay Card (install separately for frontend UI)
-          
+
           ### Features
           * 🎤 **Voice Recording API** - Record audio via browser and save to media players
           * 🗣️ **Text-to-Speech API** - Generate speech using Home Assistant's TTS services
@@ -109,31 +111,31 @@ jobs:
           * ⚙️ **Configurable Settings** - Silence prepend, volume boost, and more
           * 🔐 **Secure** - Built-in Home Assistant authentication
           * 📱 **RESTful API** - Easy integration with custom cards and automations
-          
+
           ### Configuration Options
           * **Prepend Silence**: Configurable 0-10 seconds to prevent audio cutoffs
           * **Volume Boost**: Optional volume increase during playback
           * **TTS Engine Selection**: Choose from available TTS engines
           * **Language & Voice**: Support for multiple languages and voices
-          
+
           ### API Endpoints
           * \`/api/voice-replay/upload\` - Upload audio recordings and TTS requests
           * \`/api/voice-replay/media_players\` - Get available media players
           * \`/api/voice-replay/tts_config\` - Get TTS configuration
-          
+
           ### Frontend Card
           **🎨 Looking for the Lovelace Card?** Install the companion frontend card:
           👉 **[Voice Replay Card Repository](https://github.com/chechirecat/hass-voice-replay-card)** 👈
-          
+
           ### What's Changed
-          
+
           ### Need Help?
           * 📚 [Documentation](https://github.com/chechirecat/hass-voice-replay/blob/main/README.md)
           * 🐛 [Report Issues](https://github.com/chechirecat/hass-voice-replay/issues)
           * 💬 [Discussions](https://github.com/chechirecat/hass-voice-replay/discussions)
-          
+
           EOF
-          
+
           # Add comparison URL based on latest release
           if [ "${{ steps.latest_release.outputs.has_latest }}" == "true" ]; then
             echo "**Full Changelog**: https://github.com/chechirecat/hass-voice-replay/compare/${{ steps.latest_release.outputs.latest_tag }}...${{ steps.info.outputs.tag_name }}" >> release_notes.md
@@ -147,7 +149,7 @@ jobs:
         run: |
           version="${{ steps.info.outputs.version }}"
           echo "Checking version: $version"
-          
+
           # Check if it's a prerelease based on version pattern
           if [[ "$version" =~ ^0\. ]]; then
             # Development versions (0.x.x) are prereleases
@@ -172,6 +174,7 @@ jobs:
           body_path: release_notes.md
           tag_name: ${{ steps.info.outputs.tag_name }}
           target_commitish: '${{ github.sha }}'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   prepare:
     needs: create-draft-release
@@ -225,7 +228,7 @@ jobs:
             echo "Error: Version '${{ steps.info.outputs.version }}' does not match SemVer format (e.g., 1.2.3 or 1.2.3-beta.1)."
             exit 1
           fi
-      
+
       - name: "Build the integration"
         shell: "bash"
         run: |
@@ -255,6 +258,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ needs.prepare.outputs.hacs_filename }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     needs: [create-draft-release, upload]
@@ -265,6 +269,7 @@ jobs:
         id: publish-release
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.repos.updateRelease({
               owner: context.repo.owner,
