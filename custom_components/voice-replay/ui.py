@@ -32,6 +32,33 @@ class VoiceReplayUploadView(HomeAssistantView):
         super().__init__()
         self.hass = hass
 
+    def _expand_entity_ids(self, entity_id: str) -> list[str]:
+        """Expand group entity_id to all member entity_ids.
+
+        If the entity_id is a group with group_members, return all members.
+        Otherwise, return the single entity_id in a list.
+        """
+        state = self.hass.states.get(entity_id)
+        if not state:
+            _LOGGER.warning("Entity %s not found, using as-is", entity_id)
+            return [entity_id]
+
+        # Check if this entity has group_members attribute
+        group_members = state.attributes.get("group_members", [])
+
+        # If it has multiple group members, expand to play on all of them
+        if group_members and len(group_members) > 1:
+            _LOGGER.info(
+                "Expanding group %s to %d members: %s",
+                entity_id,
+                len(group_members),
+                group_members,
+            )
+            return group_members
+
+        # Not a group or single member, return as single-item list
+        return [entity_id]
+
     async def post(self, request: web.Request) -> web.Response:
         """Handle POST request for audio upload."""
         try:
@@ -69,238 +96,366 @@ class VoiceReplayUploadView(HomeAssistantView):
     async def _handle_tts_request(self, entity_id: str, text: str) -> web.Response:
         """Handle text-to-speech request using configured TTS settings."""
         try:
-            # Get TTS configuration from integration data
+            # Expand group entity_id to all member entity_ids
+            target_entity_ids = self._expand_entity_ids(entity_id)
+
+            # Get TTS configuration and setup
             tts_config = self.hass.data.get(DOMAIN, {}).get("tts_config", {})
             _LOGGER.info("Retrieved TTS config from hass.data: %s", tts_config)
 
-            # Get volume control settings
-            volume_boost_enabled = tts_config.get("volume_boost_enabled", True)
-            volume_boost_amount = tts_config.get("volume_boost_amount", 0.1)
-
-            # Store original volume if volume boost is enabled
-            original_volume = None
-            if volume_boost_enabled:
-                original_volume = await self._store_and_boost_volume(
-                    entity_id, volume_boost_amount
-                )
-
-            # Get configured settings
-            configured_engine = tts_config.get("engine", "auto")
-            configured_language = tts_config.get("language", "de_DE")
-            configured_voice = tts_config.get("voice")
-            configured_speaker = tts_config.get("speaker")  # Add speaker support
-
-            _LOGGER.info(
-                "TTS request - Engine: %s, Language: %s, Voice: %s, Speaker: %s",
-                configured_engine,
-                configured_language,
-                configured_voice,
-                configured_speaker,
+            # Handle volume boost
+            original_volumes = await self._handle_volume_boost(
+                target_entity_ids, tts_config
             )
 
-            # Determine which TTS engine to use
-            if configured_engine == "auto":
-                tts_entity = await self._get_available_tts_engine()
-                _LOGGER.info("Auto-detected TTS engine: %s", tts_entity)
-            else:
-                # Use configured engine if it exists and is available
-                state = self.hass.states.get(configured_engine)
-                if state and state.state != "unavailable":
-                    tts_entity = configured_engine
-                    _LOGGER.info("Using configured TTS engine: %s", tts_entity)
-                else:
-                    _LOGGER.warning(
-                        "Configured TTS engine %s not available, falling back to auto-detect",
-                        configured_engine,
-                    )
-                    tts_entity = await self._get_available_tts_engine()
-                    _LOGGER.info("Fallback TTS engine: %s", tts_entity)
+            # Get TTS engine and configuration
+            tts_entity, options, normalized_language = await self._setup_tts_engine(
+                tts_config
+            )
 
             if not tts_entity:
                 return web.json_response(
                     {"error": "No TTS engine available"}, status=400
                 )
 
-            _LOGGER.info(
-                "Using TTS engine: %s for entity: %s (lang=%s, voice=%s, speaker=%s)",
+            # Play TTS on all target entities
+            await self._play_tts_on_targets(
+                target_entity_ids,
+                text,
                 tts_entity,
-                entity_id,
-                configured_language,
-                configured_voice,
-                configured_speaker,
+                options,
+                normalized_language,
+                original_volumes,
             )
 
-            # Prepare options dict for voice and speaker selection (Wyoming Protocol compatible)
-            options: dict | None = None
-            if configured_voice:
-                # Validate requested voice against engine voices, if available
-                available_voices = await self._get_engine_voices(tts_entity)
-                if available_voices and configured_voice not in available_voices:
-                    _LOGGER.warning(
-                        "Configured voice '%s' not available for engine %s. Available: %s. Using engine default.",
-                        configured_voice,
-                        tts_entity,
-                        available_voices,
-                    )
-                else:
-                    # Start building options with the voice
-                    options = {"voice": configured_voice}
-
-                    # Add speaker if configured (Wyoming Protocol)
-                    if configured_speaker:
-                        # Check if this is a Wyoming TTS entity that supports speakers
-                        if await self._is_wyoming_tts(tts_entity):
-                            options["speaker"] = configured_speaker
-                            _LOGGER.info(
-                                "Adding Wyoming Protocol speaker option: %s",
-                                configured_speaker,
-                            )
-                        else:
-                            # For non-Wyoming engines, some may still support speaker in voice name
-                            # Try combining voice and speaker (e.g., "voice_name-speaker_name")
-                            combined_voice = f"{configured_voice}-{configured_speaker}"
-                            if combined_voice in (available_voices or []):
-                                options["voice"] = combined_voice
-                                _LOGGER.info(
-                                    "Using combined voice-speaker name: %s",
-                                    combined_voice,
-                                )
-                            else:
-                                _LOGGER.warning(
-                                    "Speaker '%s' not supported by non-Wyoming engine %s, ignoring",
-                                    configured_speaker,
-                                    tts_entity,
-                                )
-
-            # Normalize language for the engine
-            normalized_language = configured_language
-            if configured_language:
-                normalized_language = await self._normalize_language_for_engine(
-                    tts_entity, configured_language
-                )
-                _LOGGER.info(
-                    "Language normalized: %s -> %s for engine %s",
-                    configured_language,
-                    normalized_language,
-                    tts_entity,
-                )
+            # Return success message
+            if len(target_entity_ids) > 1:
+                return web.json_response({
+                    "status": "success",
+                    "message": f"Playing TTS audio via {tts_entity} on {len(target_entity_ids)} speakers",
+                })
             else:
-                _LOGGER.warning("No language configured - TTS will use engine default")
-
-            # For Sonos speakers, prepare the message with silence/announcement
-            is_sonos = any(
-                keyword in entity_id.lower()
-                for keyword in ["sonos", "play:1", "play:3", "play:5"]
-            )
-            if is_sonos:
-                _LOGGER.info(
-                    "Detected Sonos speaker, preparing message with silence..."
-                )
-                # Create snapshot first
-                try:
-                    await self.hass.services.async_call(
-                        "sonos", "snapshot", {"entity_id": entity_id}, blocking=True
-                    )
-                except Exception as sonos_prep_error:
-                    _LOGGER.warning(
-                        "Could not create Sonos snapshot: %s", sonos_prep_error
-                    )
-
-                # Add silence or announcement to the beginning of the text
-                text = await self._prepare_sonos_message(text, tts_entity)
-
-            # Call the TTS entity service
-            payload = {
-                "entity_id": tts_entity,  # The TTS engine entity
-                "media_player_entity_id": entity_id,  # The media player to play on
-                "message": text,
-                "cache": True,
-            }
-
-            # Force German language for debugging - remove this later
-            if normalized_language:
-                payload["language"] = normalized_language
-                _LOGGER.info("Using normalized language: %s", normalized_language)
-            else:
-                # Fallback to force German if no language detected
-                payload["language"] = "de_DE"
-                _LOGGER.warning("No language configured, forcing German (de_DE)")
-
-            if options:
-                payload["options"] = options
-
-            _LOGGER.info("TTS payload: %s", payload)
-
-            # Log the actual service call for debugging
-            _LOGGER.info("Calling tts.speak service with payload: %s", payload)
-            await self.hass.services.async_call("tts", "speak", payload, blocking=True)
-            _LOGGER.info("TTS service call completed successfully")
-
-            # Schedule volume restoration if volume boost was enabled
-            if volume_boost_enabled and original_volume is not None:
-                await self._schedule_volume_restore(
-                    entity_id, original_volume, is_sonos
-                )
-
-            # For Sonos, schedule restoration after a delay
-            if is_sonos:
-
-                async def restore_sonos():
-                    import asyncio
-
-                    await asyncio.sleep(10.0)  # Wait for TTS to finish
-                    try:
-                        await self.hass.services.async_call(
-                            "sonos", "restore", {"entity_id": entity_id}, blocking=True
-                        )
-                        _LOGGER.info("Sonos state restored after TTS")
-                    except Exception as restore_error:
-                        _LOGGER.warning(
-                            "Could not restore Sonos state: %s", restore_error
-                        )
-
-                self.hass.async_create_task(restore_sonos())
-
-            return web.json_response({
-                "status": "success",
-                "message": f"Playing TTS audio via {tts_entity}",
-            })
+                return web.json_response({
+                    "status": "success",
+                    "message": f"Playing TTS audio via {tts_entity}",
+                })
 
         except Exception as tts_error:
-            error_msg = str(tts_error)
+            return await self._handle_tts_error(tts_error, locals())
 
-            # Provide more specific error messages for common issues
-            if "language" in error_msg.lower():
-                _LOGGER.error(
-                    "TTS language error for engine %s with language '%s': %s",
-                    tts_entity,
-                    configured_language,
-                    tts_error,
-                )
-                return web.json_response(
-                    {
-                        "error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"
-                    },
-                    status=400,
-                )
-            elif "voice" in error_msg.lower():
-                _LOGGER.error(
-                    "TTS voice error for engine %s with voice '%s': %s",
-                    tts_entity,
-                    configured_voice,
-                    tts_error,
-                )
-                return web.json_response(
-                    {
-                        "error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"
-                    },
-                    status=400,
-                )
+    async def _handle_volume_boost(
+        self, target_entity_ids: list[str], tts_config: dict
+    ) -> dict:
+        """Handle volume boost for target entities."""
+        original_volumes = {}
+        volume_boost_enabled = tts_config.get("volume_boost_enabled", True)
+        volume_boost_amount = tts_config.get("volume_boost_amount", 0.1)
+
+        if volume_boost_enabled:
+            for target_id in target_entity_ids:
+                vol = await self._store_and_boost_volume(target_id, volume_boost_amount)
+                if vol is not None:
+                    original_volumes[target_id] = vol
+
+        return original_volumes
+
+    async def _setup_tts_engine(
+        self, tts_config: dict
+    ) -> tuple[str | None, dict | None, str]:
+        """Setup TTS engine and return configuration."""
+        configured_engine = tts_config.get("engine", "auto")
+        configured_language = tts_config.get("language", "de_DE")
+        configured_voice = tts_config.get("voice")
+        configured_speaker = tts_config.get("speaker")
+
+        _LOGGER.info(
+            "TTS request - Engine: %s, Language: %s, Voice: %s, Speaker: %s",
+            configured_engine,
+            configured_language,
+            configured_voice,
+            configured_speaker,
+        )
+
+        # Determine TTS engine
+        tts_entity = await self._determine_tts_engine(configured_engine)
+        if not tts_entity:
+            return None, None, ""
+
+        # Setup voice and speaker options
+        options = await self._setup_voice_options(
+            tts_entity, configured_voice, configured_speaker
+        )
+
+        # Normalize language
+        normalized_language = await self._normalize_language_for_engine(
+            tts_entity, configured_language
+        )
+        if normalized_language != configured_language:
+            _LOGGER.info(
+                "Language normalized: %s -> %s for engine %s",
+                configured_language,
+                normalized_language,
+                tts_entity,
+            )
+
+        return tts_entity, options, normalized_language
+
+    async def _determine_tts_engine(self, configured_engine: str) -> str | None:
+        """Determine which TTS engine to use."""
+        if configured_engine == "auto":
+            tts_entity = await self._get_available_tts_engine()
+            _LOGGER.info("Auto-detected TTS engine: %s", tts_entity)
+            return tts_entity
+
+        # Use configured engine if available
+        state = self.hass.states.get(configured_engine)
+        if state and state.state != "unavailable":
+            _LOGGER.info("Using configured TTS engine: %s", configured_engine)
+            return configured_engine
+
+        # Fallback to auto-detect
+        _LOGGER.warning(
+            "Configured TTS engine %s not available, falling back to auto-detect",
+            configured_engine,
+        )
+        tts_entity = await self._get_available_tts_engine()
+        _LOGGER.info("Fallback TTS engine: %s", tts_entity)
+        return tts_entity
+
+    async def _setup_voice_options(
+        self,
+        tts_entity: str,
+        configured_voice: str | None,
+        configured_speaker: str | None,
+    ) -> dict | None:
+        """Setup voice and speaker options for TTS."""
+        if not configured_voice:
+            return None
+
+        available_voices = await self._get_engine_voices(tts_entity)
+        if available_voices and configured_voice not in available_voices:
+            _LOGGER.warning(
+                "Configured voice '%s' not available for engine %s. Available: %s. Using engine default.",
+                configured_voice,
+                tts_entity,
+                available_voices,
+            )
+            return None
+
+        options = {"voice": configured_voice}
+
+        if configured_speaker:
+            options = await self._add_speaker_option(
+                options,
+                tts_entity,
+                configured_speaker,
+                configured_voice,
+                available_voices,
+            )
+
+        return options
+
+    async def _add_speaker_option(
+        self,
+        options: dict,
+        tts_entity: str,
+        configured_speaker: str,
+        configured_voice: str,
+        available_voices: list | None,
+    ) -> dict:
+        """Add speaker option to TTS options."""
+        if await self._is_wyoming_tts(tts_entity):
+            options["speaker"] = configured_speaker
+            _LOGGER.info(
+                "Adding Wyoming Protocol speaker option: %s", configured_speaker
+            )
+        else:
+            # Try combining voice and speaker for non-Wyoming engines
+            combined_voice = f"{configured_voice}-{configured_speaker}"
+            if combined_voice in (available_voices or []):
+                options["voice"] = combined_voice
+                _LOGGER.info("Using combined voice-speaker name: %s", combined_voice)
             else:
-                _LOGGER.error("TTS service error: %s", tts_error)
-                return web.json_response(
-                    {"error": f"TTS service failed: {error_msg}"}, status=500
+                _LOGGER.warning(
+                    "Speaker '%s' not supported by non-Wyoming engine %s, ignoring",
+                    configured_speaker,
+                    tts_entity,
                 )
+
+        return options
+
+    async def _play_tts_on_targets(
+        self,
+        target_entity_ids: list[str],
+        text: str,
+        tts_entity: str,
+        options: dict | None,
+        normalized_language: str,
+        original_volumes: dict,
+    ) -> None:
+        """Play TTS on all target entities."""
+        for target_id in target_entity_ids:
+            is_sonos = any(
+                keyword in target_id.lower()
+                for keyword in ["sonos", "play:1", "play:3", "play:5"]
+            )
+
+            # Prepare text for Sonos if needed
+            tts_text = await self._prepare_tts_text_for_target(
+                target_id, text, tts_entity, is_sonos
+            )
+
+            # Create and execute TTS payload
+            payload = await self._create_tts_payload(
+                tts_entity, target_id, tts_text, normalized_language, options
+            )
+
+            await self._execute_tts_call(target_id, payload)
+
+            # Handle post-TTS actions
+            await self._handle_post_tts_actions(target_id, original_volumes, is_sonos)
+
+    async def _prepare_tts_text_for_target(
+        self, target_id: str, text: str, tts_entity: str, is_sonos: bool
+    ) -> str:
+        """Prepare TTS text for specific target."""
+        if not is_sonos:
+            return text
+
+        _LOGGER.info(
+            "Detected Sonos speaker %s, preparing message with silence...", target_id
+        )
+
+        # Create snapshot first
+        try:
+            await self.hass.services.async_call(
+                "sonos", "snapshot", {"entity_id": target_id}, blocking=True
+            )
+        except Exception as sonos_prep_error:
+            _LOGGER.warning(
+                "Could not create Sonos snapshot for %s: %s",
+                target_id,
+                sonos_prep_error,
+            )
+
+        # Add silence or announcement to the beginning of the text
+        return await self._prepare_sonos_message(text, tts_entity)
+
+    async def _create_tts_payload(
+        self,
+        tts_entity: str,
+        target_id: str,
+        tts_text: str,
+        normalized_language: str,
+        options: dict | None,
+    ) -> dict:
+        """Create TTS payload for service call."""
+        payload = {
+            "entity_id": tts_entity,
+            "media_player_entity_id": target_id,
+            "message": tts_text,
+            "cache": True,
+        }
+
+        if normalized_language:
+            payload["language"] = normalized_language
+            _LOGGER.info("Using normalized language: %s", normalized_language)
+        else:
+            payload["language"] = "de_DE"
+            _LOGGER.warning("No language configured, forcing German (de_DE)")
+
+        if options:
+            payload["options"] = options
+
+        return payload
+
+    async def _execute_tts_call(self, target_id: str, payload: dict) -> None:
+        """Execute the TTS service call."""
+        _LOGGER.info("TTS payload for %s: %s", target_id, payload)
+        _LOGGER.info(
+            "Calling tts.speak service for %s with payload: %s", target_id, payload
+        )
+
+        await self.hass.services.async_call("tts", "speak", payload, blocking=True)
+
+        _LOGGER.info("TTS service call completed successfully for %s", target_id)
+
+    async def _handle_post_tts_actions(
+        self, target_id: str, original_volumes: dict, is_sonos: bool
+    ) -> None:
+        """Handle actions after TTS playback."""
+        # Schedule volume restoration if volume boost was enabled
+        if target_id in original_volumes:
+            await self._schedule_volume_restore(
+                target_id, original_volumes[target_id], is_sonos
+            )
+
+        # For Sonos, schedule restoration after a delay
+        if is_sonos:
+
+            async def restore_sonos(sonos_entity_id: str):
+                import asyncio
+
+                await asyncio.sleep(10.0)
+                try:
+                    await self.hass.services.async_call(
+                        "sonos",
+                        "restore",
+                        {"entity_id": sonos_entity_id},
+                        blocking=True,
+                    )
+                    _LOGGER.info(
+                        "Sonos state restored after TTS for %s", sonos_entity_id
+                    )
+                except Exception as restore_error:
+                    _LOGGER.warning(
+                        "Could not restore Sonos state for %s: %s",
+                        sonos_entity_id,
+                        restore_error,
+                    )
+
+            self.hass.async_create_task(restore_sonos(target_id))
+
+    async def _handle_tts_error(
+        self, tts_error: Exception, context: dict
+    ) -> web.Response:
+        """Handle TTS errors with specific error messages."""
+        error_msg = str(tts_error)
+        tts_entity = context.get("tts_entity")
+        configured_language = context.get("tts_config", {}).get("language")
+        configured_voice = context.get("tts_config", {}).get("voice")
+
+        if "language" in error_msg.lower():
+            _LOGGER.error(
+                "TTS language error for engine %s with language '%s': %s",
+                tts_entity,
+                configured_language,
+                tts_error,
+            )
+            return web.json_response(
+                {
+                    "error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"
+                },
+                status=400,
+            )
+        elif "voice" in error_msg.lower():
+            _LOGGER.error(
+                "TTS voice error for engine %s with voice '%s': %s",
+                tts_entity,
+                configured_voice,
+                tts_error,
+            )
+            return web.json_response(
+                {
+                    "error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"
+                },
+                status=400,
+            )
+        else:
+            _LOGGER.error("TTS service error: %s", tts_error)
+            return web.json_response(
+                {"error": f"TTS service failed: {error_msg}"}, status=500
+            )
 
     async def _get_available_tts_engine(self) -> str | None:
         """Find an available TTS engine entity."""
@@ -545,6 +700,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         import os
         from datetime import datetime
 
+        # Expand group entity_id to all member entity_ids
+        target_entity_ids = self._expand_entity_ids(entity_id)
+
         audio_data = fields.get("audio")
         if not audio_data:
             return web.json_response({"error": "Missing audio data"}, status=400)
@@ -608,22 +766,32 @@ class VoiceReplayUploadView(HomeAssistantView):
         volume_boost_enabled = tts_config.get("volume_boost_enabled", True)
         volume_boost_amount = tts_config.get("volume_boost_amount", 0.1)
 
-        # Store original volume if volume boost is enabled
-        original_volume = None
+        # Store original volumes for all target entities if volume boost is enabled
+        original_volumes = {}
         if volume_boost_enabled:
-            original_volume = await self._store_and_boost_volume(
-                entity_id, volume_boost_amount
+            for target_id in target_entity_ids:
+                vol = await self._store_and_boost_volume(target_id, volume_boost_amount)
+                if vol is not None:
+                    original_volumes[target_id] = vol
+
+        # Play the audio on all target entities using media source announcement
+        for target_id in target_entity_ids:
+            original_vol = original_volumes.get(target_id)
+            await self._play_media_source_audio(
+                target_id, media_content_id, file_path, original_vol
             )
 
-        # Play the audio using media source announcement
-        await self._play_media_source_audio(
-            entity_id, media_content_id, file_path, original_volume
-        )
-
-        return web.json_response({
-            "status": "success",
-            "message": "Playing audio via media source",
-        })
+        # Return success message
+        if len(target_entity_ids) > 1:
+            return web.json_response({
+                "status": "success",
+                "message": f"Playing audio via media source on {len(target_entity_ids)} speakers",
+            })
+        else:
+            return web.json_response({
+                "status": "success",
+                "message": "Playing audio via media source",
+            })
 
     def _determine_file_format(self, provided_content_type: str) -> tuple[str, str]:
         """Determine file extension and media content type."""
