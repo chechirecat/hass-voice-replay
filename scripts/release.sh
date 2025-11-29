@@ -89,8 +89,8 @@ check_version_consistency() {
     echo "  📄 pyproject.toml: $pyproject_version"
     echo "  📄 test.js: $testjs_version"
 
-    if [[ "$manifest_version" != "$pyproject_version" ]] || 
-       [[ "$manifest_version" != "$testjs_version" ]] || 
+    if [[ "$manifest_version" != "$pyproject_version" ]] ||
+       [[ "$manifest_version" != "$testjs_version" ]] ||
        [[ "$pyproject_version" != "$testjs_version" ]]; then
         log_error "Version mismatch detected! Please fix version consistency first."
         exit 1
@@ -173,15 +173,17 @@ update_manifest_version() {
 update_pyproject_version() {
     local new_version="$1"
     log_info "Updating pyproject.toml to version $new_version"
-    
+
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS sed - only update project version, not tool config versions
         sed -i '' "/^\[project\]/,/^\[/ s/^version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
     else
-        # Linux sed - only update project version, not tool config versions  
+        # Linux sed - only update project version, not tool config versions
         sed -i "/^\[project\]/,/^\[/ s/^version = \"[^\"]*\"/version = \"$new_version\"/" "$PYPROJECT_FILE"
     fi
-}# Update version in test.js
+}
+
+# Update version in test.js
 update_testjs_version() {
     local new_version="$1"
     log_info "Updating test.js to version $new_version"
