@@ -25,22 +25,26 @@ This comprehensive guide covers everything you need to develop and contribute to
 ### Quick Setup
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/chechirecat/hass-voice-replay.git
    cd hass-voice-replay
    ```
 
 2. **Install development dependencies:**
+
    ```bash
    pip install -r requirements_dev.txt
    ```
 
 3. **Set up pre-commit hooks:**
+
    ```bash
    pre-commit install
    ```
 
 4. **Copy to Home Assistant:**
+
    ```bash
    # Copy the integration to your HA config
    cp -r custom_components/voice-replay /path/to/homeassistant/config/custom_components/
@@ -62,6 +66,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ### Automated CI/CD Pipeline
 
 The GitHub Actions workflow automatically:
+
 - ✅ Runs `ruff check` for code quality validation
 - ✅ Runs `ruff format` for automatic formatting
 - ✅ Auto-commits formatting changes back to the repo
@@ -70,6 +75,7 @@ The GitHub Actions workflow automatically:
 ### Local Development Options
 
 #### Option 1: Manual Formatting (Easiest)
+
 ```bash
 # Linux/macOS
 ./scripts/format.sh
@@ -83,6 +89,7 @@ ruff check . --fix
 ```
 
 #### Option 2: Pre-commit Hooks (Automatic)
+
 ```bash
 # Install pre-commit (one time setup)
 pip install pre-commit
@@ -95,8 +102,10 @@ git commit -m "My changes"  # <- Formatting runs automatically
 #### Option 3: IDE Integration
 
 **VS Code:**
+
 1. Install the "Ruff" extension
 2. Add to your settings.json:
+
 ```json
 {
     "[python]": {
@@ -145,18 +154,21 @@ pytest tests/
 ### Release Process Flow
 
 #### 1. Pre-Release Validation
+
 - ✅ **Working Directory Check:** Ensures no uncommitted changes
 - ✅ **Branch Check:** Confirms you're on the `main` branch
 - ✅ **Remote Access:** Verifies git remote connectivity
 - ✅ **Version Consistency:** Validates all version files match
 
 #### 2. Version Management
+
 - 🔢 **Multi-File Detection:** Reads versions from manifest.json, pyproject.toml
 - 🔍 **Consistency Check:** Ensures all version files have the same value
 - ➕ **Version Increment:** Calculates new version based on increment type
 - 🔍 **Duplicate Check:** Verifies new version doesn't already exist remotely
 
 #### 3. Release Execution
+
 - 📁 **File Updates:** Modifies version in all files simultaneously
 - 💾 **Git Commit:** Commits version changes with standard message
 - 🔖 **Tag Creation:** Creates annotated git tag with version
@@ -182,7 +194,7 @@ version = "1.2.3"
 
 ## Project Structure
 
-```
+```tree
 custom_components/voice-replay/
 ├── __init__.py              # Integration entry point
 ├── config_flow.py           # Configuration UI
@@ -213,25 +225,33 @@ tests/
 ### Key Files Explained
 
 #### `__init__.py`
+
 The integration entry point that handles:
+
 - Integration setup and unloading
 - Service registration
 - Platform initialization
 
 #### `config_flow.py`
+
 Configuration flow for the integration UI:
+
 - User setup wizard
 - Options configuration
 - Validation logic
 
 #### `ui.py`
+
 Web API endpoints and UI components:
+
 - RESTful API for audio upload
 - Media serving endpoints
 - Frontend integration points
 
 #### `services.py`
+
 Core business logic:
+
 - Audio processing
 - TTS integration
 - Media player interaction
@@ -243,6 +263,7 @@ Core business logic:
 The integration exposes several REST API endpoints:
 
 #### Audio Upload
+
 ```http
 POST /api/voice-replay/upload
 Content-Type: multipart/form-data
@@ -255,6 +276,7 @@ Parameters:
 ```
 
 #### Media Players
+
 ```http
 GET /api/voice-replay/media_players
 Authorization: Bearer <token>
@@ -263,6 +285,7 @@ Returns: List of available media players
 ```
 
 #### TTS Configuration
+
 ```http
 GET /api/voice-replay/tts_config
 Authorization: Bearer <token>
@@ -271,6 +294,7 @@ Returns: TTS service configuration
 ```
 
 #### Media Serving
+
 ```http
 GET /api/voice-replay/media/{filename}
 Authorization: Bearer <token>
@@ -281,6 +305,7 @@ Returns: Temporary audio file
 ### Service Architecture
 
 #### Voice Replay Service
+
 ```yaml
 service: voice_replay.replay
 data:
@@ -293,19 +318,25 @@ data:
 ### Integration with Home Assistant
 
 #### Media Player Integration
+
 The integration leverages HA's media player platform:
+
 - Automatic media player discovery
 - Format compatibility checking
 - Volume and state management
 
 #### TTS Integration
+
 Seamless integration with HA's TTS services:
+
 - Uses configured TTS platform
 - Respects TTS service settings
 - Handles multiple TTS engines
 
 #### Authentication
+
 Built-in Home Assistant authentication:
+
 - Bearer token validation
 - User permission checking
 - Secure API access
@@ -315,6 +346,7 @@ Built-in Home Assistant authentication:
 ### Unit Tests
 
 Run the test suite:
+
 ```bash
 # Run all tests
 pytest
@@ -342,6 +374,7 @@ Test the integration in a live Home Assistant environment:
 ### Manual Testing Checklist
 
 #### Basic Functionality
+
 - [ ] Integration installs without errors
 - [ ] Configuration flow completes successfully
 - [ ] API endpoints respond correctly
@@ -349,6 +382,7 @@ Test the integration in a live Home Assistant environment:
 - [ ] Audio upload and playback works
 
 #### Error Handling
+
 - [ ] Invalid audio formats rejected gracefully
 - [ ] Network errors handled properly
 - [ ] Media player errors reported correctly
@@ -356,6 +390,7 @@ Test the integration in a live Home Assistant environment:
 - [ ] TTS service errors managed
 
 #### Performance
+
 - [ ] Large audio files handled efficiently
 - [ ] Multiple concurrent requests work
 - [ ] Memory usage remains reasonable
@@ -378,19 +413,6 @@ media_player:
   - platform: cast
   - platform: mpd
 ```
-
-## Release Process
-
-### Automated Release
-
-The repository includes automated release scripts. See **[Release Automation Guide](RELEASE_AUTOMATION.md)** for complete details.
-
-### Version Management
-
-The integration version is managed in three files:
-- `manifest.json` - Integration version
-- `pyproject.toml` - Python package version
-- `tests/test.js` - Test file version
 
 ### Release Checklist
 
@@ -534,6 +556,7 @@ Brief description of changes
 ### Development Issues
 
 #### Import Errors
+
 ```python
 # Common issue: Module not found
 ModuleNotFoundError: No module named 'custom_components.voice_replay'
@@ -543,6 +566,7 @@ pip install -e .
 ```
 
 #### Integration Not Loading
+
 ```yaml
 # Check Home Assistant logs for:
 Logger: homeassistant.loader
@@ -553,6 +577,7 @@ Integration voice_replay not found.
 ```
 
 #### API Endpoints Not Working
+
 ```bash
 # Check if integration is loaded
 curl http://homeassistant.local:8123/api/voice-replay/media_players
@@ -564,6 +589,7 @@ curl http://homeassistant.local:8123/api/voice-replay/media_players
 ### Code Quality Issues
 
 #### Linting Failures
+
 ```bash
 # Run linter to see specific issues
 ruff check custom_components/
@@ -573,6 +599,7 @@ ruff check --fix custom_components/
 ```
 
 #### Type Check Failures
+
 ```bash
 # Run mypy for detailed type errors
 mypy custom_components/voice-replay/
@@ -584,7 +611,9 @@ mypy custom_components/voice-replay/
 ### Performance Issues
 
 #### Memory Leaks
+
 Monitor memory usage with large audio files:
+
 ```python
 import tracemalloc
 
@@ -595,7 +624,9 @@ print(f"Current memory usage: {current / 1024 / 1024:.1f} MB")
 ```
 
 #### Slow API Responses
+
 Profile API endpoint performance:
+
 ```python
 import time
 start = time.time()
@@ -616,6 +647,7 @@ print(f"API call took {time.time() - start:.2f} seconds")
 ### Custom Audio Processing
 
 Extend audio processing capabilities:
+
 ```python
 async def process_audio_custom(
     audio_data: bytes,
@@ -630,6 +662,7 @@ async def process_audio_custom(
 ### Alternative TTS Integration
 
 Integrate with external TTS services:
+
 ```python
 async def generate_tts_external(
     text: str,
@@ -644,6 +677,7 @@ async def generate_tts_external(
 ### Media Player Extensions
 
 Add support for specific media player features:
+
 ```python
 async def enhanced_media_play(
     hass: HomeAssistant,
