@@ -104,10 +104,14 @@ class VoiceReplayUploadView(HomeAssistantView):
             _LOGGER.info("Retrieved TTS config from hass.data: %s", tts_config)
 
             # Handle volume boost
-            original_volumes = await self._handle_volume_boost(target_entity_ids, tts_config)
+            original_volumes = await self._handle_volume_boost(
+                target_entity_ids, tts_config
+            )
 
             # Get TTS engine and configuration
-            tts_entity, options, normalized_language = await self._setup_tts_engine(tts_config)
+            tts_entity, options, normalized_language = await self._setup_tts_engine(
+                tts_config
+            )
 
             if not tts_entity:
                 return web.json_response(
@@ -116,7 +120,12 @@ class VoiceReplayUploadView(HomeAssistantView):
 
             # Play TTS on all target entities
             await self._play_tts_on_targets(
-                target_entity_ids, text, tts_entity, options, normalized_language, original_volumes
+                target_entity_ids,
+                text,
+                tts_entity,
+                options,
+                normalized_language,
+                original_volumes,
             )
 
             # Return success message
@@ -134,7 +143,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         except Exception as tts_error:
             return await self._handle_tts_error(tts_error, locals())
 
-    async def _handle_volume_boost(self, target_entity_ids: list[str], tts_config: dict) -> dict:
+    async def _handle_volume_boost(
+        self, target_entity_ids: list[str], tts_config: dict
+    ) -> dict:
         """Handle volume boost for target entities."""
         original_volumes = {}
         volume_boost_enabled = tts_config.get("volume_boost_enabled", True)
@@ -148,7 +159,9 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         return original_volumes
 
-    async def _setup_tts_engine(self, tts_config: dict) -> tuple[str | None, dict | None, str]:
+    async def _setup_tts_engine(
+        self, tts_config: dict
+    ) -> tuple[str | None, dict | None, str]:
         """Setup TTS engine and return configuration."""
         configured_engine = tts_config.get("engine", "auto")
         configured_language = tts_config.get("language", "de_DE")
@@ -157,7 +170,10 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         _LOGGER.info(
             "TTS request - Engine: %s, Language: %s, Voice: %s, Speaker: %s",
-            configured_engine, configured_language, configured_voice, configured_speaker,
+            configured_engine,
+            configured_language,
+            configured_voice,
+            configured_speaker,
         )
 
         # Determine TTS engine
@@ -166,14 +182,20 @@ class VoiceReplayUploadView(HomeAssistantView):
             return None, None, ""
 
         # Setup voice and speaker options
-        options = await self._setup_voice_options(tts_entity, configured_voice, configured_speaker)
+        options = await self._setup_voice_options(
+            tts_entity, configured_voice, configured_speaker
+        )
 
         # Normalize language
-        normalized_language = await self._normalize_language_for_engine(tts_entity, configured_language)
+        normalized_language = await self._normalize_language_for_engine(
+            tts_entity, configured_language
+        )
         if normalized_language != configured_language:
             _LOGGER.info(
                 "Language normalized: %s -> %s for engine %s",
-                configured_language, normalized_language, tts_entity,
+                configured_language,
+                normalized_language,
+                tts_entity,
             )
 
         return tts_entity, options, normalized_language
@@ -200,7 +222,12 @@ class VoiceReplayUploadView(HomeAssistantView):
         _LOGGER.info("Fallback TTS engine: %s", tts_entity)
         return tts_entity
 
-    async def _setup_voice_options(self, tts_entity: str, configured_voice: str | None, configured_speaker: str | None) -> dict | None:
+    async def _setup_voice_options(
+        self,
+        tts_entity: str,
+        configured_voice: str | None,
+        configured_speaker: str | None,
+    ) -> dict | None:
         """Setup voice and speaker options for TTS."""
         if not configured_voice:
             return None
@@ -209,7 +236,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         if available_voices and configured_voice not in available_voices:
             _LOGGER.warning(
                 "Configured voice '%s' not available for engine %s. Available: %s. Using engine default.",
-                configured_voice, tts_entity, available_voices,
+                configured_voice,
+                tts_entity,
+                available_voices,
             )
             return None
 
@@ -217,19 +246,29 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         if configured_speaker:
             options = await self._add_speaker_option(
-                options, tts_entity, configured_speaker, configured_voice, available_voices
+                options,
+                tts_entity,
+                configured_speaker,
+                configured_voice,
+                available_voices,
             )
 
         return options
 
     async def _add_speaker_option(
-        self, options: dict, tts_entity: str, configured_speaker: str,
-        configured_voice: str, available_voices: list | None
+        self,
+        options: dict,
+        tts_entity: str,
+        configured_speaker: str,
+        configured_voice: str,
+        available_voices: list | None,
     ) -> dict:
         """Add speaker option to TTS options."""
         if await self._is_wyoming_tts(tts_entity):
             options["speaker"] = configured_speaker
-            _LOGGER.info("Adding Wyoming Protocol speaker option: %s", configured_speaker)
+            _LOGGER.info(
+                "Adding Wyoming Protocol speaker option: %s", configured_speaker
+            )
         else:
             # Try combining voice and speaker for non-Wyoming engines
             combined_voice = f"{configured_voice}-{configured_speaker}"
@@ -239,14 +278,20 @@ class VoiceReplayUploadView(HomeAssistantView):
             else:
                 _LOGGER.warning(
                     "Speaker '%s' not supported by non-Wyoming engine %s, ignoring",
-                    configured_speaker, tts_entity,
+                    configured_speaker,
+                    tts_entity,
                 )
 
         return options
 
     async def _play_tts_on_targets(
-        self, target_entity_ids: list[str], text: str, tts_entity: str,
-        options: dict | None, normalized_language: str, original_volumes: dict
+        self,
+        target_entity_ids: list[str],
+        text: str,
+        tts_entity: str,
+        options: dict | None,
+        normalized_language: str,
+        original_volumes: dict,
     ) -> None:
         """Play TTS on all target entities."""
         for target_id in target_entity_ids:
@@ -256,7 +301,9 @@ class VoiceReplayUploadView(HomeAssistantView):
             )
 
             # Prepare text for Sonos if needed
-            tts_text = await self._prepare_tts_text_for_target(target_id, text, tts_entity, is_sonos)
+            tts_text = await self._prepare_tts_text_for_target(
+                target_id, text, tts_entity, is_sonos
+            )
 
             # Create and execute TTS payload
             payload = await self._create_tts_payload(
@@ -275,7 +322,9 @@ class VoiceReplayUploadView(HomeAssistantView):
         if not is_sonos:
             return text
 
-        _LOGGER.info("Detected Sonos speaker %s, preparing message with silence...", target_id)
+        _LOGGER.info(
+            "Detected Sonos speaker %s, preparing message with silence...", target_id
+        )
 
         # Create snapshot first
         try:
@@ -284,15 +333,21 @@ class VoiceReplayUploadView(HomeAssistantView):
             )
         except Exception as sonos_prep_error:
             _LOGGER.warning(
-                "Could not create Sonos snapshot for %s: %s", target_id, sonos_prep_error,
+                "Could not create Sonos snapshot for %s: %s",
+                target_id,
+                sonos_prep_error,
             )
 
         # Add silence or announcement to the beginning of the text
         return await self._prepare_sonos_message(text, tts_entity)
 
     async def _create_tts_payload(
-        self, tts_entity: str, target_id: str, tts_text: str,
-        normalized_language: str, options: dict | None
+        self,
+        tts_entity: str,
+        target_id: str,
+        tts_text: str,
+        normalized_language: str,
+        options: dict | None,
     ) -> dict:
         """Create TTS payload for service call."""
         payload = {
@@ -317,36 +372,53 @@ class VoiceReplayUploadView(HomeAssistantView):
     async def _execute_tts_call(self, target_id: str, payload: dict) -> None:
         """Execute the TTS service call."""
         _LOGGER.info("TTS payload for %s: %s", target_id, payload)
-        _LOGGER.info("Calling tts.speak service for %s with payload: %s", target_id, payload)
+        _LOGGER.info(
+            "Calling tts.speak service for %s with payload: %s", target_id, payload
+        )
 
         await self.hass.services.async_call("tts", "speak", payload, blocking=True)
 
         _LOGGER.info("TTS service call completed successfully for %s", target_id)
 
-    async def _handle_post_tts_actions(self, target_id: str, original_volumes: dict, is_sonos: bool) -> None:
+    async def _handle_post_tts_actions(
+        self, target_id: str, original_volumes: dict, is_sonos: bool
+    ) -> None:
         """Handle actions after TTS playback."""
         # Schedule volume restoration if volume boost was enabled
         if target_id in original_volumes:
-            await self._schedule_volume_restore(target_id, original_volumes[target_id], is_sonos)
+            await self._schedule_volume_restore(
+                target_id, original_volumes[target_id], is_sonos
+            )
 
         # For Sonos, schedule restoration after a delay
         if is_sonos:
+
             async def restore_sonos(sonos_entity_id: str):
                 import asyncio
+
                 await asyncio.sleep(10.0)
                 try:
                     await self.hass.services.async_call(
-                        "sonos", "restore", {"entity_id": sonos_entity_id}, blocking=True,
+                        "sonos",
+                        "restore",
+                        {"entity_id": sonos_entity_id},
+                        blocking=True,
                     )
-                    _LOGGER.info("Sonos state restored after TTS for %s", sonos_entity_id)
+                    _LOGGER.info(
+                        "Sonos state restored after TTS for %s", sonos_entity_id
+                    )
                 except Exception as restore_error:
                     _LOGGER.warning(
-                        "Could not restore Sonos state for %s: %s", sonos_entity_id, restore_error,
+                        "Could not restore Sonos state for %s: %s",
+                        sonos_entity_id,
+                        restore_error,
                     )
 
             self.hass.async_create_task(restore_sonos(target_id))
 
-    async def _handle_tts_error(self, tts_error: Exception, context: dict) -> web.Response:
+    async def _handle_tts_error(
+        self, tts_error: Exception, context: dict
+    ) -> web.Response:
         """Handle TTS errors with specific error messages."""
         error_msg = str(tts_error)
         tts_entity = context.get("tts_entity")
@@ -356,19 +428,27 @@ class VoiceReplayUploadView(HomeAssistantView):
         if "language" in error_msg.lower():
             _LOGGER.error(
                 "TTS language error for engine %s with language '%s': %s",
-                tts_entity, configured_language, tts_error,
+                tts_entity,
+                configured_language,
+                tts_error,
             )
             return web.json_response(
-                {"error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"},
+                {
+                    "error": f"Language '{configured_language}' not supported by {tts_entity}. {error_msg}"
+                },
                 status=400,
             )
         elif "voice" in error_msg.lower():
             _LOGGER.error(
                 "TTS voice error for engine %s with voice '%s': %s",
-                tts_entity, configured_voice, tts_error,
+                tts_entity,
+                configured_voice,
+                tts_error,
             )
             return web.json_response(
-                {"error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"},
+                {
+                    "error": f"Voice '{configured_voice}' not supported by {tts_entity}. {error_msg}"
+                },
                 status=400,
             )
         else:
