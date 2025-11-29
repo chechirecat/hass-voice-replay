@@ -6,6 +6,13 @@
             "type": "shell",
             "command": "scripts/develop.sh",
             "problemMatcher": []
+        },
+        {
+            "label": "Run Home Assistant on port 8123 (PowerShell)",
+            "type": "shell",
+            "command": "powershell",
+            "args": ["-ExecutionPolicy", "Bypass", "-File", "scripts/develop.ps1"],
+            "problemMatcher": []
         }
     ]
 }

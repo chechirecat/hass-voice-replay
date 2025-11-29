@@ -113,7 +113,8 @@ git commit -m "My changes"  # <- Formatting runs automatically
 
 ```bash
 # Run all linting checks
-./scripts/lint.sh
+./scripts/lint.sh                # Linux/macOS
+.\scripts\lint.ps1               # Windows PowerShell
 
 # Format code
 ruff format custom_components/
@@ -137,7 +138,7 @@ pytest tests/
 
 # PowerShell (Windows/Cross-platform)
 .\scripts\release.ps1                   # Patch release
-.\scripts\release.ps1 -Increment minor  # Minor release  
+.\scripts\release.ps1 -Increment minor  # Minor release
 .\scripts\release.ps1 -Increment major  # Major release
 ```
 
@@ -195,10 +196,12 @@ custom_components/voice-replay/
     └── en.json              # English translations
 
 scripts/
-├── develop.sh               # Development setup script
-├── lint.sh                  # Linting script
+├── develop.sh               # Development setup script (Linux/macOS)
+├── develop.ps1              # Development setup script (PowerShell)
+├── lint.sh                  # Linting script (Linux/macOS)
+├── lint.ps1                 # Linting script (PowerShell)
 ├── setup.sh                 # Project setup script
-└── release.sh               # Release automation script
+└── release.sh/.ps1          # Release automation script
 
 tests/
 ├── conftest.py              # Test configuration
@@ -215,7 +218,7 @@ The integration entry point that handles:
 - Service registration
 - Platform initialization
 
-#### `config_flow.py`  
+#### `config_flow.py`
 Configuration flow for the integration UI:
 - User setup wizard
 - Options configuration
@@ -224,7 +227,7 @@ Configuration flow for the integration UI:
 #### `ui.py`
 Web API endpoints and UI components:
 - RESTful API for audio upload
-- Media serving endpoints  
+- Media serving endpoints
 - Frontend integration points
 
 #### `services.py`
@@ -295,7 +298,7 @@ The integration leverages HA's media player platform:
 - Format compatibility checking
 - Volume and state management
 
-#### TTS Integration  
+#### TTS Integration
 Seamless integration with HA's TTS services:
 - Uses configured TTS platform
 - Respects TTS service settings
@@ -331,7 +334,7 @@ pytest -v
 Test the integration in a live Home Assistant environment:
 
 1. **Install in development HA instance**
-2. **Configure the integration**  
+2. **Configure the integration**
 3. **Test API endpoints manually**
 4. **Verify service calls work**
 5. **Test with different media players**
@@ -369,7 +372,7 @@ tts:
   - platform: amazon_polly
   - platform: piper
 
-# Different media players  
+# Different media players
 media_player:
   - platform: sonos
   - platform: cast
@@ -403,7 +406,7 @@ Before releasing:
 # Patch release (bug fixes)
 ./scripts/release.sh
 
-# Minor release (new features)  
+# Minor release (new features)
 ./scripts/release.sh --increment minor
 
 # Major release (breaking changes)
@@ -433,16 +436,16 @@ async def upload_audio(
     audio_format: str = "webm"
 ) -> dict[str, Any]:
     """Upload audio data and prepare for playback.
-    
+
     Args:
         hass: Home Assistant instance
         audio_data: Raw audio bytes
         entity_id: Target media player entity ID
         audio_format: Audio format (webm, mp3, etc.)
-        
+
     Returns:
         Dictionary with upload result and media URL
-        
+
     Raises:
         ValueError: If audio data is invalid
         HomeAssistantError: If media player not found
@@ -451,22 +454,22 @@ async def upload_audio(
         # Validate inputs
         if not audio_data:
             raise ValueError("Audio data cannot be empty")
-            
+
         if not entity_id.startswith("media_player."):
             raise ValueError(f"Invalid media player entity: {entity_id}")
-        
+
         # Process audio
         filename = await _save_audio_file(hass, audio_data, audio_format)
         media_url = _create_media_url(hass, filename)
-        
+
         _LOGGER.info("Audio uploaded successfully: %s", filename)
-        
+
         return {
             "success": True,
             "filename": filename,
             "media_url": media_url
         }
-        
+
     except Exception as err:
         _LOGGER.error("Failed to upload audio: %s", err)
         raise HomeAssistantError(f"Audio upload failed: {err}") from err
@@ -480,7 +483,7 @@ Use conventional commit format:
 # Feature additions
 git commit -m "feat: add support for custom TTS voices"
 
-# Bug fixes  
+# Bug fixes
 git commit -m "fix: handle media player unavailable state"
 
 # Documentation
@@ -510,7 +513,7 @@ Brief description of changes
 
 ## Type of Change
 - [ ] Bug fix
-- [ ] New feature  
+- [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
 
