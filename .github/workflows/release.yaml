@@ -24,7 +24,7 @@ jobs:
       release_id: ${{ steps.create-release.outputs.id }}
     steps:
       - name: "Checkout the repository"
-        uses: "actions/checkout@v5"
+        uses: "actions/checkout@v6"
 
       - name: "Gather tag name and version"
         id: info
@@ -186,7 +186,7 @@ jobs:
       hacs_filename: ${{ steps.info.outputs.hacs_filename }}
       version: ${{ steps.info.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
