@@ -250,7 +250,7 @@ jobs:
     name: "Upload Release Asset"
     steps:
       - name: "Download artifact"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ${{ needs.prepare.outputs.hacs_filename }}
       - name: "Upload Release Asset"
