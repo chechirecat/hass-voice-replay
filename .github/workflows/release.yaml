@@ -239,7 +239,7 @@ jobs:
           zip '${{ steps.info.outputs.hacs_filename }}' -r ./
 
       - name: "Upload artifact"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.info.outputs.hacs_filename }}
           path: '${{ steps.info.outputs.component_dir }}/${{ steps.info.outputs.hacs_filename }}'
