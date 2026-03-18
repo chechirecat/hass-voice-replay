@@ -71,8 +71,8 @@ For Wyoming TTS entities, options are formatted as:
 
 ```python
 {
-    "voice": "voice_name",      # Main voice identifier
-    "speaker": "speaker_name"   # Optional speaker identifier
+    "voice": "voice_name",  # Main voice identifier
+    "speaker": "speaker_name",  # Optional speaker identifier
 }
 ```
 
