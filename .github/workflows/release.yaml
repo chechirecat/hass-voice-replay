@@ -167,7 +167,7 @@ jobs:
 
       - name: "Create Draft Release"
         id: create-release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true
           prerelease: ${{ steps.release-type.outputs.is_prerelease }}
@@ -255,7 +255,7 @@ jobs:
           name: ${{ needs.prepare.outputs.hacs_filename }}
       - name: "Upload Release Asset"
         id: upload-asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ needs.prepare.outputs.hacs_filename }}
           token: ${{ secrets.GITHUB_TOKEN }}
