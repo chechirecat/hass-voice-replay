@@ -105,6 +105,15 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             else:
                 current_combined_voice = current_voice
 
+        # Drop a stored speaker that is no longer offered (earlier versions
+        # derived speakers from the voice name, e.g. "thorsten")
+        combined_values = [option["value"] for option in combined_voice_options]
+        if (
+            current_combined_voice not in combined_values
+            and current_voice in combined_values
+        ):
+            current_combined_voice = current_voice
+
         # Build comprehensive schema
         data_schema_dict = {}
 
@@ -550,41 +559,6 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             )
             if all_speakers and isinstance(all_speakers, (list, tuple)):
                 return list(all_speakers)
-
-            # Method 3: Check if the voice name contains speaker information
-            # For Piper voices like "de_DE-thorsten-low", the speaker might be "thorsten"
-            if "-" in voice_name:
-                parts = voice_name.split("-")
-                if len(parts) >= 2:
-                    # Try different patterns:
-                    # Format 1: language-speaker-quality (e.g., "de_DE-thorsten-low")
-                    # Format 2: speaker-quality (e.g., "thorsten-low")
-                    potential_speakers = []
-
-                    # Check if first part looks like language code
-                    first_part = parts[0]
-                    if "_" in first_part or len(first_part) == 2:
-                        # Likely language-speaker-quality format
-                        if len(parts) >= 2:
-                            potential_speakers.append(parts[1])  # thorsten
-                    else:
-                        # Likely speaker-quality format
-                        potential_speakers.append(parts[0])  # speaker name
-
-                    # Also try extracting speaker names that aren't just quality indicators
-                    for part in parts[1:]:  # Skip the first part (likely language)
-                        if part not in ["low", "medium", "high", "x_low", "x-low"]:
-                            potential_speakers.append(part)
-
-                    # Remove duplicates and return
-                    unique_speakers = list(set(potential_speakers))
-                    if unique_speakers:
-                        _LOGGER.debug(
-                            "Extracted speakers from voice name '%s': %s",
-                            voice_name,
-                            unique_speakers,
-                        )
-                        return unique_speakers
 
             # Method 4: Check for voice-specific speaker mappings
             voice_speaker_mapping = state.attributes.get("voice_speakers", {})
