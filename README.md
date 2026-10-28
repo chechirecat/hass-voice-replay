@@ -133,12 +133,14 @@ curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
 
 🎯 **Latest Features and Improvements**
 
+- **0.9.6**: Options dialog fix for Home Assistant 2025.12+, audio conversion no longer blocks Home Assistant
+- **0.9.5**: Group replay plays on all speakers instead of just the main speaker
 - **0.9.3**: Documentation streamlining, Sonos group detection, media player sorting
 - **0.9.2**: Card picker preview fixes, universal MP3 conversion for Sonos compatibility  
 - **0.9.1**: Prepend silence configuration fixes, nullish coalescing operator improvements
 - **0.9.0**: Major audio format compatibility overhaul, enhanced media player integration
 
-**Key Benefits**: Universal audio compatibility, improved Sonos support, streamlined documentation
+**Key Benefits**: Universal audio compatibility, improved Sonos support, compatibility with current Home Assistant releases
 
 ### Previous Major Versions
 
