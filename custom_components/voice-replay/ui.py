@@ -510,10 +510,12 @@ class VoiceReplayUploadView(HomeAssistantView):
                 _LOGGER.warning("TTS engine state not found: %s", engine_entity_id)
                 return language
 
-            # Get supported languages from the engine
-            supported_langs = state.attributes.get(
-                "supported_languages"
-            ) or state.attributes.get("languages")
+            # Get supported languages from the engine entity (they are not
+            # exposed as state attributes)
+            from homeassistant.components.tts.helper import get_engine_instance
+
+            engine = get_engine_instance(self.hass, engine_entity_id)
+            supported_langs = engine.supported_languages if engine else None
             if not supported_langs:
                 _LOGGER.warning(
                     "No supported languages found for engine %s", engine_entity_id

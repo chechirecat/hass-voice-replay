@@ -242,12 +242,13 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
             if not state:
                 return []
 
-            # Method 1: Check for supported_languages attribute
-            languages = state.attributes.get(
-                "supported_languages"
-            ) or state.attributes.get("languages")
-            if languages and isinstance(languages, (list, tuple)):
-                return list(languages)
+            # Method 1: Ask the engine entity (languages are not exposed as
+            # state attributes)
+            from homeassistant.components.tts.helper import get_engine_instance
+
+            engine = get_engine_instance(self.hass, engine_entity_id)
+            if engine and engine.supported_languages:
+                return sorted(engine.supported_languages)
 
             # Method 2: For Piper TTS, check for voice attributes that indicate languages
             # Piper often has attributes like "voices_de_DE", "voices_en_US", etc.
