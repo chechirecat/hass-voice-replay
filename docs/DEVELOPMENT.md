@@ -427,22 +427,19 @@ The project follows these coding standards:
 ```python
 # Good: Type hints and error handling
 async def upload_audio(
-    hass: HomeAssistant,
-    audio_data: bytes,
-    entity_id: str,
-    audio_format: str = "webm"
+    hass: HomeAssistant, audio_data: bytes, entity_id: str, audio_format: str = "webm"
 ) -> dict[str, Any]:
     """Upload audio data and prepare for playback.
-    
+
     Args:
         hass: Home Assistant instance
         audio_data: Raw audio bytes
         entity_id: Target media player entity ID
         audio_format: Audio format (webm, mp3, etc.)
-        
+
     Returns:
         Dictionary with upload result and media URL
-        
+
     Raises:
         ValueError: If audio data is invalid
         HomeAssistantError: If media player not found
@@ -451,22 +448,18 @@ async def upload_audio(
         # Validate inputs
         if not audio_data:
             raise ValueError("Audio data cannot be empty")
-            
+
         if not entity_id.startswith("media_player."):
             raise ValueError(f"Invalid media player entity: {entity_id}")
-        
+
         # Process audio
         filename = await _save_audio_file(hass, audio_data, audio_format)
         media_url = _create_media_url(hass, filename)
-        
+
         _LOGGER.info("Audio uploaded successfully: %s", filename)
-        
-        return {
-            "success": True,
-            "filename": filename,
-            "media_url": media_url
-        }
-        
+
+        return {"success": True, "filename": filename, "media_url": media_url}
+
     except Exception as err:
         _LOGGER.error("Failed to upload audio: %s", err)
         raise HomeAssistantError(f"Audio upload failed: {err}") from err
@@ -595,6 +588,7 @@ print(f"Current memory usage: {current / 1024 / 1024:.1f} MB")
 Profile API endpoint performance:
 ```python
 import time
+
 start = time.time()
 # ... API call ...
 print(f"API call took {time.time() - start:.2f} seconds")
@@ -615,9 +609,7 @@ print(f"API call took {time.time() - start:.2f} seconds")
 Extend audio processing capabilities:
 ```python
 async def process_audio_custom(
-    audio_data: bytes,
-    format_in: str,
-    format_out: str
+    audio_data: bytes, format_in: str, format_out: str
 ) -> bytes:
     """Custom audio processing pipeline."""
     # Add noise reduction, normalization, etc.
@@ -628,11 +620,7 @@ async def process_audio_custom(
 
 Integrate with external TTS services:
 ```python
-async def generate_tts_external(
-    text: str,
-    voice: str,
-    service: str
-) -> bytes:
+async def generate_tts_external(text: str, voice: str, service: str) -> bytes:
     """Generate TTS using external service."""
     # Integration with cloud TTS APIs
     pass
@@ -643,10 +631,7 @@ async def generate_tts_external(
 Add support for specific media player features:
 ```python
 async def enhanced_media_play(
-    hass: HomeAssistant,
-    entity_id: str,
-    media_url: str,
-    **kwargs
+    hass: HomeAssistant, entity_id: str, media_url: str, **kwargs
 ) -> None:
     """Enhanced media playback with specific features."""
     # Add fade-in, queue management, etc.
