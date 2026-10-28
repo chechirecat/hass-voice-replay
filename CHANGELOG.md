@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminated audio clicks at beginning of recordings through smart timing
 - Perfect synchronization between frontend countdown and backend silence processing
 
+## [0.9.6] - 2026-10-28
+
+### Fixed
+- Integration options dialog ("Configure") failed with 500 Internal Server Error on Home Assistant 2025.12 and newer
+- Audio conversion (ffmpeg) and duration detection (ffprobe) no longer block the Home Assistant event loop
+- File operations in the media folder no longer run on the event loop
+
 ## [0.8.1] - 2025-11-02
 
 ### Added
