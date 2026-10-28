@@ -36,16 +36,11 @@ class VoiceReplayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return VoiceReplayOptionsFlowHandler(config_entry)
+        return VoiceReplayOptionsFlowHandler()
 
 
 class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle Voice Replay options flow."""
-
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
-        self._current_config = dict(config_entry.options)
 
     async def async_step_init(self, user_input=None):
         """Manage all TTS configuration in a single step."""
@@ -356,7 +351,9 @@ class VoiceReplayOptionsFlowHandler(config_entries.OptionsFlow):
                 # This should be available on Wyoming TTS entities
                 try:
                     # Try to get the TTS entity directly
-                    tts_entities = self.hass.data.get("tts", {})
+                    from homeassistant.components.tts.const import DATA_COMPONENT
+
+                    tts_entities = self.hass.data.get(DATA_COMPONENT)
                     if hasattr(tts_entities, "get_entity"):
                         entity = tts_entities.get_entity(engine_entity_id)
                         if entity and hasattr(entity, "async_get_supported_voices"):

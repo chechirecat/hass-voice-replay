@@ -735,14 +735,12 @@ class VoiceReplayUploadView(HomeAssistantView):
 
         # Save audio to media folder
         try:
-            import asyncio
-
-            # Use asyncio to avoid blocking the event loop
+            # Run in executor to avoid blocking the event loop
             def write_file():
                 with open(file_path, "wb") as f:
                     f.write(audio_data)
 
-            await asyncio.get_event_loop().run_in_executor(None, write_file)
+            await self.hass.async_add_executor_job(write_file)
             _LOGGER.info("Saved voice recording to: %s", file_path)
         except Exception as e:
             _LOGGER.error("Failed to save voice recording: %s", e)
@@ -857,18 +855,22 @@ class VoiceReplayUploadView(HomeAssistantView):
                         temp_converted_path,
                     ]
 
-                    result = subprocess.run(
-                        command,
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
+                    # Run in executor to avoid blocking the event loop
+                    def run_conversion():
+                        result = subprocess.run(
+                            command,
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                        )
+                        # Replace original file with converted file
+                        os.remove(temp_path)
+                        os.rename(temp_converted_path, temp_path)
+                        return result
+
+                    result = await self.hass.async_add_executor_job(run_conversion)
                     _LOGGER.debug("FFmpeg conversion stdout: %s", result.stdout)
                     _LOGGER.debug("FFmpeg conversion stderr: %s", result.stderr)
-
-                    # Replace original file with converted file
-                    os.remove(temp_path)
-                    os.rename(temp_converted_path, temp_path)
 
                     _LOGGER.info(
                         "Successfully converted %s to MP3",
@@ -895,11 +897,14 @@ class VoiceReplayUploadView(HomeAssistantView):
         import asyncio
         import os
 
+        def remove_file():
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
         async def cleanup_media_file():
             await asyncio.sleep(600)  # 10 minutes
             try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+                await self.hass.async_add_executor_job(remove_file)
                 _LOGGER.debug("Cleaned up media file: %s", filename)
             except Exception as cleanup_error:
                 _LOGGER.warning("Could not cleanup media file: %s", cleanup_error)
@@ -921,11 +926,11 @@ class VoiceReplayUploadView(HomeAssistantView):
         )
 
         # Add debugging information
-        _LOGGER.info(
-            "File exists at path: %s = %s", file_path, os.path.exists(file_path)
+        file_size = await self.hass.async_add_executor_job(
+            lambda: os.path.getsize(file_path) if os.path.exists(file_path) else None
         )
-        if os.path.exists(file_path):
-            file_size = os.path.getsize(file_path)
+        _LOGGER.info("File exists at path: %s = %s", file_path, file_size is not None)
+        if file_size is not None:
             _LOGGER.info("File size: %s bytes", file_size)
             if file_size == 0:
                 _LOGGER.warning("Audio file is empty!")
@@ -1233,24 +1238,30 @@ class VoiceReplayUploadView(HomeAssistantView):
         import shutil
         import subprocess
 
+        # Run in executor to avoid blocking the event loop
+        def probe_duration() -> float | None:
+            if not (os.path.exists(file_path) and shutil.which("ffprobe")):
+                return None
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "quiet",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "csv=p=0",
+                    file_path,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return float(result.stdout.strip())
+
         try:
-            if os.path.exists(file_path) and shutil.which("ffprobe"):
-                result = subprocess.run(
-                    [
-                        "ffprobe",
-                        "-v",
-                        "quiet",
-                        "-show_entries",
-                        "format=duration",
-                        "-of",
-                        "csv=p=0",
-                        file_path,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                duration = float(result.stdout.strip())
+            duration = await self.hass.async_add_executor_job(probe_duration)
+            if duration is not None:
                 return max(duration + 1.0, 3.0)
         except Exception as e:
             _LOGGER.debug("Could not determine audio duration: %s", e)
@@ -1438,16 +1449,8 @@ class VoiceReplayTTSConfigView(HomeAssistantView):
             # Check if TTS is available
             tts_services = []
             if self.hass.services.has_service("tts", "speak"):
-                # Get available TTS engines
-                tts_domain = self.hass.data.get("tts", {})
-                if tts_domain:
-                    for service_name in self.hass.services.async_services().get(
-                        "tts", {}
-                    ):
-                        tts_services.append(service_name)
-                else:
-                    # Fallback - assume basic TTS is available
-                    tts_services.append("speak")
+                # Get available TTS services
+                tts_services.extend(self.hass.services.async_services().get("tts", {}))
 
             return web.json_response({
                 "available": len(tts_services) > 0,
