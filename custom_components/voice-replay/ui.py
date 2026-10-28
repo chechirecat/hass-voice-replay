@@ -979,40 +979,11 @@ class VoiceReplayUploadView(HomeAssistantView):
                 blocking=True,
             )
 
-            _LOGGER.info("Media source playback call completed, checking state...")
-
-            # Give it a moment to start playing
-            import asyncio
-
-            await asyncio.sleep(1.0)
-
-            # Check new state
-            new_state = self.hass.states.get(entity_id)
-            if new_state:
-                _LOGGER.info(
-                    "Media player state after playback: %s, media_title: %s",
-                    new_state.state,
-                    new_state.attributes.get("media_title"),
-                )
-                _LOGGER.info(
-                    "Current media_content_id: %s",
-                    new_state.attributes.get("media_content_id"),
-                )
-
-            # Check if playback actually started by comparing media_content_id
-            if new_state and media_content_id in str(
-                new_state.attributes.get("media_content_id", "")
-            ):
-                _LOGGER.info("Media source playback successful!")
-            else:
-                _LOGGER.warning(
-                    "Media source playback failed (content didn't change), trying direct HTTP serving..."
-                )
-                await self._play_with_direct_serving(
-                    entity_id, file_path, original_volume
-                )
-                return
-
+            # play_media is blocking and raises on failure (handled below).
+            # Announcements are not reflected in the player state (e.g. Sonos
+            # plays them as an AudioClip overlay and stays idle), so the state
+            # cannot be used to detect success; playing again would send a
+            # second announcement.
             _LOGGER.info("Successfully started media source playback")
 
             # Schedule volume restoration if needed
