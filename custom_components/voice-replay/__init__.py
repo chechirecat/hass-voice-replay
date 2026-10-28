@@ -60,7 +60,7 @@ async def async_setup_entry(hass, entry) -> bool:
     hass.data[DOMAIN].setdefault(DATA_KEY, {})
 
     # Create the media folder for voice recordings
-    media_folder_path = _ensure_media_folder(hass)
+    media_folder_path = await hass.async_add_executor_job(_ensure_media_folder, hass)
     hass.data[DOMAIN]["media_folder_path"] = media_folder_path
 
     # Store TTS configuration from options
@@ -119,7 +119,7 @@ async def async_unload_entry(hass, entry) -> bool:
         _LOGGER.debug("Service removal failed or service not present", exc_info=True)
 
     # Clean up the media folder
-    _cleanup_media_folder(hass)
+    await hass.async_add_executor_job(_cleanup_media_folder, hass)
 
     # Clear stored data for this integration instance
     hass.data.pop(DOMAIN, None)
