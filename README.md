@@ -133,6 +133,7 @@ curl -X POST http://homeassistant.local:8123/api/voice-replay/upload \
 
 🎯 **Latest Features and Improvements**
 
+- **0.9.7**: TTS language fix (de -> de_DE), no more double announcements on Sonos, no fake Piper speakers
 - **0.9.6**: Options dialog fix for Home Assistant 2025.12+, audio conversion no longer blocks Home Assistant
 - **0.9.5**: Group replay plays on all speakers instead of just the main speaker
 - **0.9.3**: Documentation streamlining, Sonos group detection, media player sorting

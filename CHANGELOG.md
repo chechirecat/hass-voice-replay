@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminated audio clicks at beginning of recordings through smart timing
 - Perfect synchronization between frontend countdown and backend silence processing
 
+## [0.9.7] - 2026-10-28
+
+### Fixed
+- Selecting "de" as TTS language failed with "Language 'de' not supported"; languages are now read from the TTS engine and mapped (e.g. de -> de_DE)
+- Options dialog now lists the languages the TTS engine actually supports instead of a fixed list
+- Announcements were sent twice (second one a second later via direct URL), because players like Sonos do not report announcements in their state
+- Options dialog no longer offers made-up speakers derived from Piper voice names (e.g. "thorsten")
+
 ## [0.9.6] - 2026-10-28
 
 ### Fixed
